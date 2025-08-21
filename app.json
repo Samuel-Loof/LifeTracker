@@ -1,5 +1,6 @@
 {
   "expo": {
+    "scheme": "shelfieapp",
     "name": "LifeTrack3r",
     "slug": "LifeTrack3r",
     "version": "1.0.0",
@@ -20,10 +21,21 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "permissions": ["CAMERA"]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow LifeTrack3r to access your camera to scan food barcodes.",
+          "microphonePermission": false
+        }
+      ]
+    ]
   }
 }
