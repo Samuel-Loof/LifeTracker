@@ -1,23 +1,18 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import { Text, View, StyleSheet, TouchableOpacity, Alert } from "react-native";
-import * as CameraModule from "expo-camera";
+import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 
 const BarcodeScanner = () => {
-  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
-  const cameraRef = useRef<any>(null);
   const router = useRouter();
 
   useEffect(() => {
-    const getCameraPermissions = async () => {
-      const { status } =
-        await CameraModule.Camera.requestCameraPermissionsAsync();
-      setHasPermission(status === "granted");
-    };
-
-    getCameraPermissions();
-  }, []);
+    if (permission && !permission.granted) {
+      requestPermission();
+    }
+  }, [permission]);
 
   const handleBarCodeScanned = ({
     type,
@@ -36,28 +31,33 @@ const BarcodeScanner = () => {
         text: "Add Food",
         onPress: () => {
           console.log("Add food with barcode:", data);
+          router.back();
         },
       },
     ]);
   };
 
-  if (hasPermission === null) {
-    return <Text>Requesting for camera permission</Text>;
-  }
-  if (hasPermission === false) {
-    return <Text>No access to camera</Text>;
+  if (!permission) {
+    return <View />;
   }
 
-  // Create a custom camera component to bypass TypeScript issues
-  const CameraComponent = CameraModule.Camera as any;
+  if (!permission.granted) {
+    return (
+      <View style={styles.permissionContainer}>
+        <Text>We need your permission to show the camera</Text>
+        <TouchableOpacity onPress={requestPermission} style={styles.button}>
+          <Text style={styles.buttonText}>Grant Permission</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <CameraComponent
-        style={StyleSheet.absoluteFillObject}
-        type={"back"}
-        onBarCodeScanned={scanned ? undefined : handleBarCodeScanned}
-        ref={cameraRef}
+      <CameraView
+        style={styles.camera}
+        facing="back"
+        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
       />
       <View style={styles.overlay}>
         <View style={styles.unfocusedContainer}></View>
@@ -80,12 +80,18 @@ const BarcodeScanner = () => {
   );
 };
 
-// Keep your styles the same
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: "column",
+  },
+  permissionContainer: {
+    flex: 1,
     justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  camera: {
+    flex: 1,
   },
   overlay: {
     position: "absolute",
@@ -117,6 +123,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   scanAgainText: {
+    color: "white",
+    fontWeight: "bold",
+  },
+  button: {
+    backgroundColor: "#3498db",
+    padding: 15,
+    borderRadius: 10,
+    marginTop: 20,
+  },
+  buttonText: {
     color: "white",
     fontWeight: "bold",
   },

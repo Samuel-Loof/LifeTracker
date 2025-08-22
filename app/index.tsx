@@ -1,8 +1,10 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 
-const HomeScreen = () => {
+export default function HomeScreen() {
+  const router = useRouter();
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to LifeTrack3r!</Text>
@@ -21,12 +23,15 @@ const HomeScreen = () => {
           <Text style={styles.buttonText}>Scan Food</Text>
         </TouchableOpacity>
       </Link>
-      <TouchableOpacity style={[styles.button, styles.secondaryButton]}>
+      <TouchableOpacity
+        style={[styles.button, styles.secondaryButton]}
+        onPress={() => router.push("/manual")} // Add this route later
+      >
         <Text style={styles.buttonText}>Add Food Manually</Text>
       </TouchableOpacity>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -83,5 +88,3 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
-
-export default HomeScreen;

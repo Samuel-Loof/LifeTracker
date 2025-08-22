@@ -2,14 +2,14 @@ import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import BarcodeScanner from "./components/BarcodeScanner";
 
-const ScannerScreen = () => {
+export default function ScannerScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Scan Food Barcode</Text>
       <BarcodeScanner />
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -22,5 +22,3 @@ const styles = StyleSheet.create({
     margin: 20,
   },
 });
-
-export default ScannerScreen;
