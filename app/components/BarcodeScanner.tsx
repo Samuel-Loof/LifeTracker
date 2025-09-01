@@ -3,7 +3,13 @@ import { Text, View, StyleSheet, TouchableOpacity, Alert } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
 import { useRouter } from "expo-router";
 
-const BarcodeScanner = () => {
+// Interface to define what props this component accepts
+interface BarcodeScannerProps {
+  onFoodScanned?: (barcode: string) => void; // Optional callback function
+}
+
+// Update component to accept props
+const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onFoodScanned }) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const router = useRouter();
@@ -14,6 +20,7 @@ const BarcodeScanner = () => {
     }
   }, [permission]);
 
+  // Updated to use the callback function instead of just console.log
   const handleBarCodeScanned = ({
     type,
     data,
@@ -22,6 +29,8 @@ const BarcodeScanner = () => {
     data: string;
   }) => {
     setScanned(true);
+
+    // Simple alert first, then call parent function
     Alert.alert("Barcode Scanned!", `Type: ${type}\nData: ${data}`, [
       {
         text: "OK",
@@ -30,8 +39,14 @@ const BarcodeScanner = () => {
       {
         text: "Add Food",
         onPress: () => {
-          console.log("Add food with barcode:", data);
-          router.back();
+          //  Call the parent function if it exists (that's what ?. does)
+          if (onFoodScanned) {
+            onFoodScanned(data); // Pass barcode to parent
+          } else {
+            //  Fallback behavior if no callback provided
+            console.log("Add food with barcode:", data);
+            router.back();
+          }
         },
       },
     ]);
