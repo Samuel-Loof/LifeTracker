@@ -10,7 +10,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 
 const SERVING_UNITS = [
-  { label: "Serving (default)", value: "serving" },
+  { label: "Serving", value: "serving" },
   { label: "Gram (g)", value: "gram" },
   { label: "Tablespoon", value: "tablespoon" },
   { label: "Cup", value: "cup" },
@@ -32,20 +32,43 @@ export default function FoodDetailsScreen() {
 
   // Calculate nutrition based on amount and unit
   const calculateNutrition = () => {
-    // TODO: Add calculation logic later
-    const baseCalories = parseInt(params.calories as string) || 0;
+    const baseCalories = parseFloat(params.calories as string) || 0;
+    const baseProtein = parseFloat(params.protein as string) || 0;
+    const baseCarbs = parseFloat(params.carbs as string) || 0;
+    const baseFat = parseFloat(params.fat as string) || 0;
     const currentAmount = parseFloat(amount) || 1;
 
-    // For now, just multiply by amount (we'll make this smarter later)
+    let conversionFactor = 1;
+
+    switch (selectedUnit) {
+      case "gram":
+        // Base values are per 100g, so for X grams: divide by 100 then multiply by X
+        conversionFactor = currentAmount / 100;
+        break;
+      case "serving":
+        const servingSizeStr = String(params.servingSize || "100g");
+        // Extract just the numbers from "175 g" or "175g"
+        const numbers = servingSizeStr.match(/\d+/);
+        const servingSizeGrams = numbers ? parseInt(numbers[0]) : 100;
+        conversionFactor = (currentAmount * servingSizeGrams) / 100;
+        break;
+      case "tablespoon":
+        // Assume 1 tablespoon = 15g
+        conversionFactor = (currentAmount * 15) / 100;
+        break;
+      case "cup":
+        // Assume 1 cup = 240g (varies by food type)
+        conversionFactor = (currentAmount * 240) / 100;
+        break;
+      default:
+        conversionFactor = currentAmount;
+    }
+
     return {
-      calories: Math.round(baseCalories * currentAmount),
-      protein: Math.round(
-        (parseInt(params.protein as string) || 0) * currentAmount
-      ),
-      carbs: Math.round(
-        (parseInt(params.carbs as string) || 0) * currentAmount
-      ),
-      fat: Math.round((parseInt(params.fat as string) || 0) * currentAmount),
+      calories: Math.round(baseCalories * conversionFactor),
+      protein: (baseProtein * conversionFactor).toFixed(1),
+      carbs: (baseCarbs * conversionFactor).toFixed(1),
+      fat: (baseFat * conversionFactor).toFixed(1),
     };
   };
 

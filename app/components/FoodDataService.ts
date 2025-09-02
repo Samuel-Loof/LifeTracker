@@ -41,11 +41,10 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         barcode,
         name: product.product_name || 'Unknown Product',
         brand: product.brands || 'Unknown Brand',
-        calories: nutriments.energy_kcal_100g || 0,
+        calories: nutriments.energy ? Math.round(nutriments.energy * 0.239) : 0,
         protein: nutriments.proteins_100g || 0,
         carbs: nutriments.carbohydrates_100g || 0,
         fat: nutriments.fat_100g || 0,
-        // NEW - Extract serving data
         servingSize: product.serving_size || undefined,
         caloriesPerServing: nutriments.energy_kcal_serving || undefined,
     };

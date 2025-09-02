@@ -11,65 +11,23 @@ export default function ScannerScreen() {
   const handleFoodScanned = async (barcode: string) => {
     console.log("Processing barcode:", barcode);
 
-    // Show loading state (optional - you could add a loading indicator here)
-    console.log("Fetching food data from OpenFoodFacts...");
-
     try {
       // Call our API service to get food information
       const foodData: FoodData | null = await getFoodData(barcode);
 
       if (foodData) {
-        // Food was found in the database
+        // Food found - navigate directly to FoodDetailsScreen
         console.log("Food found:", foodData);
-
-        // Show confirmation with food details
-        Alert.alert(
-          "Food Found!",
-          `Name: ${foodData.name}\nBrand: ${
-            foodData.brand || "Unknown"
-          }\nCalories: ${foodData.calories} per 100g`,
-          [
-            {
-              text: "Cancel",
-              style: "cancel",
-            },
-            {
-              text: "Add to Today's Intake",
-              onPress: () => addFoodToIntake(foodData), //Function we'll create next
-            },
-          ]
-        );
+        addFoodToIntake(foodData); // Direct navigation, no alert
       } else {
-        // NEW - Product not found in OpenFoodFacts database
+        // Food not found - navigate directly to manual entry screen
         console.log("Food not found in database");
-
-        Alert.alert(
-          "Product Not Found",
-          "This product isn't in our database yet. You can add it manually or try scanning a different product.",
-          [
-            {
-              text: "OK",
-              style: "default",
-            },
-            {
-              text: "Add Manually",
-              onPress: () => {
-                // TODO: Navigate to manual food entry screen
-                console.log("Navigate to manual food entry");
-              },
-            },
-          ]
-        );
+        router.push("/components/screens/ManualFoodEntry"); // Create this screen later
       }
     } catch (error) {
-      // Handle any errors (network issues, etc.)
+      // Handle network errors - could show a brief toast or navigate to error screen
       console.error("Error processing barcode:", error);
-
-      Alert.alert(
-        "Error",
-        "Failed to fetch food data. Please check your internet connection and try again.",
-        [{ text: "OK" }]
-      );
+      // For now, just log it - can improve error handling later
     }
   };
 
@@ -88,6 +46,7 @@ export default function ScannerScreen() {
         carbs: foodData.carbs.toString(),
         fat: foodData.fat.toString(),
         barcode: foodData.barcode,
+        servingSize: foodData.servingSize || "100g",
       },
     });
   };

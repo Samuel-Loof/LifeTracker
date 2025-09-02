@@ -30,26 +30,14 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onFoodScanned }) => {
   }) => {
     setScanned(true);
 
-    // Simple alert first, then call parent function
-    Alert.alert("Barcode Scanned!", `Type: ${type}\nData: ${data}`, [
-      {
-        text: "OK",
-        onPress: () => setScanned(false),
-      },
-      {
-        text: "Add Food",
-        onPress: () => {
-          //  Call the parent function if it exists (that's what ?. does)
-          if (onFoodScanned) {
-            onFoodScanned(data); // Pass barcode to parent
-          } else {
-            //  Fallback behavior if no callback provided
-            console.log("Add food with barcode:", data);
-            router.back();
-          }
-        },
-      },
-    ]);
+    // Call parent function directly, no alert
+    if (onFoodScanned) {
+      onFoodScanned(data); // Pass barcode to parent immediately
+    } else {
+      // Fallback behavior if no callback provided
+      console.log("Add food with barcode:", data);
+      router.back();
+    }
   };
 
   if (!permission) {
