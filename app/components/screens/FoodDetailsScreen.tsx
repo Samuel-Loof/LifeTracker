@@ -46,10 +46,12 @@ export default function FoodDetailsScreen() {
         conversionFactor = currentAmount / 100;
         break;
       case "serving":
+        console.log("Raw servingSize param:", params.servingSize);
         const servingSizeStr = String(params.servingSize || "100g");
         // Extract just the numbers from "175 g" or "175g"
         const numbers = servingSizeStr.match(/\d+/);
-        const servingSizeGrams = numbers ? parseInt(numbers[0]) : 100;
+        const servingSizeGrams = numbers ? parseInt(numbers[0]) : 100; // This line is correct
+        console.log("Parsed servingSizeGrams:", servingSizeGrams);
         conversionFactor = (currentAmount * servingSizeGrams) / 100;
         break;
       case "tablespoon":
