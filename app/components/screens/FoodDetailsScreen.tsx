@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Modal,
 } from "react-native";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 const SERVING_UNITS = [
   { label: "Serving", value: "serving" },
@@ -19,6 +19,7 @@ const SERVING_UNITS = [
 
 export default function FoodDetailsScreen() {
   const params = useLocalSearchParams();
+  const router = useRouter();
 
   // state variables
   const [selectedUnit, setSelectedUnit] = useState("serving");
@@ -50,7 +51,7 @@ export default function FoodDetailsScreen() {
         const servingSizeStr = String(params.servingSize || "100g");
         // Extract just the numbers from "175 g" or "175g"
         const numbers = servingSizeStr.match(/\d+/);
-        const servingSizeGrams = numbers ? parseInt(numbers[0]) : 100; // This line is correct
+        const servingSizeGrams = numbers ? parseInt(numbers[0]) : 100;
         console.log("Parsed servingSizeGrams:", servingSizeGrams);
         conversionFactor = (currentAmount * servingSizeGrams) / 100;
         break;
@@ -128,13 +129,13 @@ export default function FoodDetailsScreen() {
             unit: selectedUnit,
             nutrition: currentNutrition,
           });
-          // TODO: Save to intake and navigate back
+          router.push("/components/screens/DailyIntakeScreen");
         }}
       >
         <Text style={styles.trackButtonText}>TRACK</Text>
       </TouchableOpacity>
 
-      {/* NEW - Unit picker modal (INSIDE the return, at the end) */}
+      {/* Unit picker modal (INSIDE the return, at the end) */}
       <Modal visible={showUnitPicker} transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
