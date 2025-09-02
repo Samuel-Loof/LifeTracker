@@ -1,20 +1,131 @@
-import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import React, { useState } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  Modal,
+} from "react-native";
 import { useLocalSearchParams } from "expo-router";
+
+const SERVING_UNITS = [
+  { label: "Serving (default)", value: "serving" },
+  { label: "Gram (g)", value: "gram" },
+  { label: "Tablespoon", value: "tablespoon" },
+  { label: "Cup", value: "cup" },
+  { label: "Piece", value: "piece" },
+];
 
 export default function FoodDetailsScreen() {
   const params = useLocalSearchParams();
 
-  // TODO: Parse the food data from params
+  // state variables
+  const [selectedUnit, setSelectedUnit] = useState("serving");
+  const [amount, setAmount] = useState("1");
+  const [showUnitPicker, setShowUnitPicker] = useState(false);
+
+  const handleUnitSelect = (unitValue: string) => {
+    setSelectedUnit(unitValue);
+    setShowUnitPicker(false);
+  };
+
+  // Calculate nutrition based on amount and unit
+  const calculateNutrition = () => {
+    // TODO: Add calculation logic later
+    const baseCalories = parseInt(params.calories as string) || 0;
+    const currentAmount = parseFloat(amount) || 1;
+
+    // For now, just multiply by amount (we'll make this smarter later)
+    return {
+      calories: Math.round(baseCalories * currentAmount),
+      protein: Math.round(
+        (parseInt(params.protein as string) || 0) * currentAmount
+      ),
+      carbs: Math.round(
+        (parseInt(params.carbs as string) || 0) * currentAmount
+      ),
+      fat: Math.round((parseInt(params.fat as string) || 0) * currentAmount),
+    };
+  };
+
+  const currentNutrition = calculateNutrition(); // Calculate the current values
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Food Details</Text>
-      <Text>Food Name: {params.name}</Text>
-      <Text>Calories: {params.calories}</Text>
-      {/* TODO: Add serving selector */}
-      {/* TODO: Add nutrition circles */}
-      {/* TODO: Add track button */}
+      <Text style={styles.title}>{params.name}</Text>
+      <Text style={styles.brand}>{params.brand}</Text>
+
+      {/* Serving selector section (INSIDE the return) */}
+      <View style={styles.servingContainer}>
+        <Text style={styles.label}>Amount</Text>
+
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.amountInput}
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="numeric"
+            placeholder="1"
+          />
+
+          <TouchableOpacity
+            style={styles.unitButton}
+            onPress={() => setShowUnitPicker(true)}
+          >
+            <Text style={styles.unitText}>
+              {SERVING_UNITS.find((u) => u.value === selectedUnit)?.label}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Current nutrition display */}
+      <View style={styles.nutritionContainer}>
+        <Text style={styles.nutritionTitle}>
+          Nutrition ({amount} {selectedUnit})
+        </Text>
+        <Text>Calories: {currentNutrition.calories}</Text>
+        <Text>Protein: {currentNutrition.protein}g</Text>
+        <Text>Carbs: {currentNutrition.carbs}g</Text>
+        <Text>Fat: {currentNutrition.fat}g</Text>
+      </View>
+
+      {/* TODO: Add nutrition circles here */}
+
+      {/* Track button */}
+      <TouchableOpacity
+        style={styles.trackButton}
+        onPress={() => {
+          console.log("Tracking:", {
+            food: params.name,
+            amount: amount,
+            unit: selectedUnit,
+            nutrition: currentNutrition,
+          });
+          // TODO: Save to intake and navigate back
+        }}
+      >
+        <Text style={styles.trackButtonText}>TRACK</Text>
+      </TouchableOpacity>
+
+      {/* NEW - Unit picker modal (INSIDE the return, at the end) */}
+      <Modal visible={showUnitPicker} transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Unit</Text>
+            {SERVING_UNITS.map((unit) => (
+              <TouchableOpacity
+                key={unit.value}
+                style={styles.optionButton}
+                onPress={() => handleUnitSelect(unit.value)}
+              >
+                <Text style={styles.optionText}>{unit.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -28,6 +139,104 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
+    marginBottom: 5,
+  },
+  brand: {
+    fontSize: 18,
+    color: "#666",
     marginBottom: 20,
+  },
+  // Serving selector
+  servingContainer: {
+    backgroundColor: "white",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 10,
+    color: "#2c3e50",
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  amountInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginRight: 10,
+  },
+  unitButton: {
+    flex: 2,
+    backgroundColor: "#3498db",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  unitText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  // Nutrition display
+  nutritionContainer: {
+    backgroundColor: "white",
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+  },
+  nutritionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 10,
+    color: "#2c3e50",
+  },
+  // Track button
+  trackButton: {
+    backgroundColor: "#4CAF50",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginTop: "auto",
+  },
+  trackButtonText: {
+    color: "white",
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 20,
+    width: "80%",
+    maxHeight: "50%",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    marginBottom: 15,
+    textAlign: "center",
+  },
+  optionButton: {
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  optionText: {
+    fontSize: 16,
+    textAlign: "center",
   },
 });

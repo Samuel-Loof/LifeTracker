@@ -1,11 +1,13 @@
 export interface FoodData {
-    barcode: string; 
+    barcode: string;
     name: string;
     brand: string;
-    calories: number;
+    calories: number; // per 100g
     protein: number;
     carbs: number;
     fat: number;
+    servingSize?: string; // "78 g", "1 cup", etc.
+    caloriesPerServing?: number;
 }
 
 // User-Agent required by OpenFoodFacts API
@@ -36,15 +38,17 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         const nutriments = product.nutriments || {}; // Handle case where nutrition data is missing
         
         return {
-            barcode,
-            name: product.product_name || 'Unknown Product',
-            brand: product.brands || 'Unknown Brand',
-            // Nutrition data per 100g (most common format)
-            calories: nutriments.energy_kcal_100g || 0,
-            protein: nutriments.proteins_100g || 0,
-            carbs: nutriments.carbohydrates_100g || 0,
-            fat: nutriments.fat_100g || 0,
-        };
+        barcode,
+        name: product.product_name || 'Unknown Product',
+        brand: product.brands || 'Unknown Brand',
+        calories: nutriments.energy_kcal_100g || 0,
+        protein: nutriments.proteins_100g || 0,
+        carbs: nutriments.carbohydrates_100g || 0,
+        fat: nutriments.fat_100g || 0,
+        // NEW - Extract serving data
+        servingSize: product.serving_size || undefined,
+        caloriesPerServing: nutriments.energy_kcal_serving || undefined,
+    };
 
     } catch (error) {
         // Handle network errors, parsing errors, etc.
