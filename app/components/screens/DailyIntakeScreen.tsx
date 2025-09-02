@@ -1,9 +1,11 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFood } from "../FoodContext";
 
 export default function DailyIntakeScreen() {
   const router = useRouter();
+  const { dailyFoods } = useFood();
 
   return (
     <View style={styles.container}>
