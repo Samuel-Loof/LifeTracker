@@ -7,10 +7,31 @@ export default function DailyIntakeScreen() {
   const router = useRouter();
   const { dailyFoods } = useFood();
 
+  console.log("DailyFoods array:", dailyFoods);
+  console.log("Length:", dailyFoods.length);
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Today's Intake</Text>
       {/* TODO: Add food list, nutrition summary, scan more button, done button */}
+      {dailyFoods.length === 0 ? (
+        <Text>No food has been added yet</Text>
+      ) : (
+        dailyFoods.map((food) => {
+          console.log("food data", food);
+          return (
+            <View key={food.id}>
+              <Text>{food.name}</Text>
+              <Text>{food.nutrition.calories} calories</Text>
+              <Text>
+                Protein log: "{food.nutrition.protein}" (type:{" "}
+                {typeof food.nutrition.protein})
+              </Text>
+              <Text>{food.nutrition.protein} protein</Text>
+            </View>
+          );
+        })
+      )}
     </View>
   );
 }
