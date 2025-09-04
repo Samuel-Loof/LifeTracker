@@ -28,7 +28,7 @@ interface FoodContextType {
   addFood: (food: FoodItem) => void;
 }
 
-// Create context with proper typing
+// Create context
 const FoodContext = createContext<FoodContextType | undefined>(undefined);
 
 // Provider props interface

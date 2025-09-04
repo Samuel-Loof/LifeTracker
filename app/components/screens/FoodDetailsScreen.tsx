@@ -8,6 +8,7 @@ import {
   Modal,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useFood } from "../FoodContext";
 
 const SERVING_UNITS = [
   { label: "Serving", value: "serving" },
@@ -20,6 +21,7 @@ const SERVING_UNITS = [
 export default function FoodDetailsScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
+  const { addFood } = useFood();
 
   // state variables
   const [selectedUnit, setSelectedUnit] = useState("serving");
@@ -82,10 +84,9 @@ export default function FoodDetailsScreen() {
       <Text style={styles.title}>{params.name}</Text>
       <Text style={styles.brand}>{params.brand}</Text>
 
-      {/* Serving selector section (INSIDE the return) */}
+      {/* Serving selector section */}
       <View style={styles.servingContainer}>
         <Text style={styles.label}>Amount</Text>
-
         <View style={styles.inputRow}>
           <TextInput
             style={styles.amountInput}
@@ -94,7 +95,6 @@ export default function FoodDetailsScreen() {
             keyboardType="numeric"
             placeholder="1"
           />
-
           <TouchableOpacity
             style={styles.unitButton}
             onPress={() => setShowUnitPicker(true)}
@@ -117,18 +117,27 @@ export default function FoodDetailsScreen() {
         <Text>Fat: {currentNutrition.fat}g</Text>
       </View>
 
-      {/* TODO: Add nutrition circles here */}
-
-      {/* Track button */}
+      {/* Track button - the one with food saving logic */}
       <TouchableOpacity
         style={styles.trackButton}
         onPress={() => {
-          console.log("Tracking:", {
-            food: params.name,
-            amount: amount,
+          const foodItem = {
+            id: Date.now().toString(),
+            name: params.name as string,
+            brand: params.brand as string,
+            amount: parseFloat(amount),
             unit: selectedUnit,
-            nutrition: currentNutrition,
-          });
+            nutrition: {
+              calories: currentNutrition.calories,
+              protein: parseFloat(currentNutrition.protein),
+              carbs: parseFloat(currentNutrition.carbs),
+              fat: parseFloat(currentNutrition.fat),
+            },
+            timestamp: new Date(),
+          };
+
+          addFood(foodItem);
+          console.log("Food added to daily intake:", foodItem);
           router.push("/components/screens/DailyIntakeScreen");
         }}
       >
