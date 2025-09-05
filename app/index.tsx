@@ -20,7 +20,28 @@ export default function HomeScreen() {
       </View>
       <Link href="/scanner" asChild>
         <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Scan Food</Text>
+          <Text style={styles.buttonText}>Scan Food</Text>{" "}
+          {/*This should be a camera icon or a "+" */}
+        </TouchableOpacity>
+      </Link>
+      <Link href="/components/screens/DailyIntakeScreen?meal=breakfast" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Breakfast</Text>
+        </TouchableOpacity>
+      </Link>
+      <Link href="/components/screens/DailyIntakeScreen?meal=lunch" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Lunch</Text>
+        </TouchableOpacity>
+      </Link>
+      <Link href="/components/screens/DailyIntakeScreen?meal=dinner" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Dinner</Text>
+        </TouchableOpacity>
+      </Link>
+      <Link href="/components/screens/DailyIntakeScreen?meal=snack" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>snack</Text>
         </TouchableOpacity>
       </Link>
       <TouchableOpacity

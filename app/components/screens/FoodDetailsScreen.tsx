@@ -18,6 +18,13 @@ const SERVING_UNITS = [
   { label: "Piece", value: "piece" },
 ];
 
+const MEAL_OPTIONS = [
+  { label: "breakfast", value: "breakfast" },
+  { label: "lunch", value: "lunch" },
+  { label: "dinner", value: "dinner" },
+  { label: "snack", value: "snack" },
+];
+
 export default function FoodDetailsScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
@@ -27,6 +34,15 @@ export default function FoodDetailsScreen() {
   const [selectedUnit, setSelectedUnit] = useState("serving");
   const [amount, setAmount] = useState("1");
   const [showUnitPicker, setShowUnitPicker] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState("breakfast");
+  const [showMealPicker, setShowMealPicker] = useState(false);
+  //    current value    function to change it    starting value
+
+  // Think of it like a light switch:
+
+  // showMealPicker = Is the light on? (true/false)
+  // setShowMealPicker = The switch to turn it on/off
+  // useState(false) = Light starts off
 
   const handleUnitSelect = (unitValue: string) => {
     setSelectedUnit(unitValue);
@@ -103,6 +119,14 @@ export default function FoodDetailsScreen() {
               {SERVING_UNITS.find((u) => u.value === selectedUnit)?.label}
             </Text>
           </TouchableOpacity>
+
+          {/* Meal button */}
+          <TouchableOpacity
+            style={styles.mealButton}
+            onPress={() => setShowMealPicker(true)}
+          >
+            <Text style={styles.mealText}>{selectedMeal}</Text>
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -134,6 +158,7 @@ export default function FoodDetailsScreen() {
               fat: parseFloat(currentNutrition.fat),
             },
             timestamp: new Date(),
+            mealType: selectedMeal,
           };
 
           addFood(foodItem);
@@ -156,6 +181,27 @@ export default function FoodDetailsScreen() {
                 onPress={() => handleUnitSelect(unit.value)}
               >
                 <Text style={styles.optionText}>{unit.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Meal picker modal */}
+      <Modal visible={showMealPicker} transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Selected Meal</Text>
+            {MEAL_OPTIONS.map((meal) => (
+              <TouchableOpacity
+                key={meal.value}
+                style={styles.optionButton}
+                onPress={() => {
+                  setSelectedMeal(meal.value);
+                  setShowMealPicker(false);
+                }}
+              >
+                <Text style={styles.optionText}>{meal.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -273,5 +319,19 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     textAlign: "center",
+  },
+
+  mealButton: {
+    flex: 1,
+    backgroundColor: "#e74c3c",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    marginLeft: 10,
+  },
+  mealText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

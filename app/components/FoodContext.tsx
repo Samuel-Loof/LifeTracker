@@ -21,6 +21,7 @@ interface FoodItem {
     fat: number;
   };
   timestamp: Date;
+  mealType: string;
 }
 
 interface FoodContextType {
