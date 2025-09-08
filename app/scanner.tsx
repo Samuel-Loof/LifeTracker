@@ -22,7 +22,27 @@ export default function ScannerScreen() {
       } else {
         // Food not found - navigate directly to manual entry screen
         console.log("Food not found in database");
-        router.push("/components/screens/ManualFoodEntry"); // Create this screen later
+        Alert.alert(
+          "Product not found",
+          "This product isn't in our database yet. Would you like to add it manually?",
+          [
+            {
+              text: "No",
+              style: "cancel",
+              onPress: () => {
+                console.log("User chose not to add manually");
+                // Stay on scanner, do nothing
+              },
+            },
+            {
+              text: "Yes",
+              onPress: () => {
+                console.log("User chose to add manually");
+                router.push("/components/screens/ManualFoodEntry");
+              },
+            },
+          ]
+        );
       }
     } catch (error) {
       // Handle network errors - could show a brief toast or navigate to error screen

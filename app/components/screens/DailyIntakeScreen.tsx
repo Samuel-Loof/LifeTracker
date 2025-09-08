@@ -1,6 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import { useFood } from "../FoodContext";
 
 export default function DailyIntakeScreen() {
@@ -21,11 +21,20 @@ export default function DailyIntakeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Today's Intake</Text>
+      <Link href="/scanner" asChild>
+        <TouchableOpacity style={styles.button}>
+          <Text style={styles.buttonText}>Add more items</Text>
+        </TouchableOpacity>
+      </Link>
+
       {mealFoods.length === 0 ? (
         <Text>No food has been added yet</Text>
       ) : (
         mealFoods.map((food) => {
           console.log("food data", food);
+          console.log("protein type:", typeof food.nutrition.protein);
+          console.log("carbs type:", typeof food.nutrition.carbs);
+          console.log("fat type:", typeof food.nutrition.fat);
           return (
             <View key={food.id} style={styles.foodItem}>
               <View style={styles.foodInfo}>
@@ -84,5 +93,17 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  button: {
+    backgroundColor: "#3498db",
+    padding: 15,
+    borderRadius: 10,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
