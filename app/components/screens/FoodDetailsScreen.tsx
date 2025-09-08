@@ -34,7 +34,11 @@ export default function FoodDetailsScreen() {
   const [selectedUnit, setSelectedUnit] = useState("serving");
   const [amount, setAmount] = useState("1");
   const [showUnitPicker, setShowUnitPicker] = useState(false);
-  const [selectedMeal, setSelectedMeal] = useState("breakfast");
+  const [selectedMeal, setSelectedMeal] = useState(
+    (params.meal as string) || "breakfast"
+  );
+  console.log("Received meal param:", params.meal);
+  console.log("Selected meal state:", selectedMeal);
   const [showMealPicker, setShowMealPicker] = useState(false);
   //    current value    function to change it    starting value
 
@@ -163,7 +167,9 @@ export default function FoodDetailsScreen() {
 
           addFood(foodItem);
           console.log("Food added to daily intake:", foodItem);
-          router.push("/components/screens/DailyIntakeScreen");
+          router.push(
+            `/components/screens/DailyIntakeScreen?meal=${selectedMeal}`
+          );
         }}
       >
         <Text style={styles.trackButtonText}>TRACK</Text>

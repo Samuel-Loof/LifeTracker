@@ -2,10 +2,12 @@ import React from "react";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import BarcodeScanner from "./components/BarcodeScanner";
 import { getFoodData, FoodData } from "./components/FoodDataService"; // Import our food service
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 
 export default function ScannerScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
+  const mealParam = params.meal;
 
   //Function to handle when a barcode is scanned and process the food data
   const handleFoodScanned = async (barcode: string) => {
@@ -67,6 +69,7 @@ export default function ScannerScreen() {
         fat: foodData.fat.toString(),
         barcode: foodData.barcode,
         servingSize: foodData.servingSize || "100g",
+        meal: mealParam || "breakfast",
       },
     });
   };

@@ -21,7 +21,7 @@ export default function DailyIntakeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Today's Intake</Text>
-      <Link href="/scanner" asChild>
+      <Link href={`/scanner?meal=${mealType}`} asChild>
         <TouchableOpacity style={styles.button}>
           <Text style={styles.buttonText}>Add more items</Text>
         </TouchableOpacity>
