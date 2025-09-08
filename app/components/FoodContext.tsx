@@ -27,6 +27,7 @@ interface FoodItem {
 interface FoodContextType {
   dailyFoods: FoodItem[];
   addFood: (food: FoodItem) => void;
+  removeFood: (foodId: string) => void;
 }
 
 // Create context
@@ -59,8 +60,14 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
   };
 
+  const removeFood = async (foodId: string) => {
+    const updated = dailyFoods.filter((food) => food.id !== foodId);
+    setDailyFoods(updated);
+    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+  };
+
   return (
-    <FoodContext.Provider value={{ dailyFoods, addFood }}>
+    <FoodContext.Provider value={{ dailyFoods, addFood, removeFood }}>
       {children}
     </FoodContext.Provider>
   );

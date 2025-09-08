@@ -1,11 +1,11 @@
 import React from "react";
-import { View, Text, StyleSheet } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFood } from "../FoodContext";
 
 export default function DailyIntakeScreen() {
   const router = useRouter();
-  const { dailyFoods } = useFood();
+  const { dailyFoods, removeFood } = useFood();
   const params = useLocalSearchParams();
   const mealType = params.meal || "all";
 
@@ -21,23 +21,27 @@ export default function DailyIntakeScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Today's Intake</Text>
-      {/* TODO: Add food list, nutrition summary, scan more button, done button */}
       {mealFoods.length === 0 ? (
         <Text>No food has been added yet</Text>
       ) : (
-        dailyFoods.map((food) => {
+        mealFoods.map((food) => {
           console.log("food data", food);
           return (
-            <View key={food.id}>
-              <Text>{food.name}</Text>
-              <Text>{food.nutrition.calories} calories</Text>
-              {/* <Text>
-                Protein log: "{food.nutrition.protein}" (type:{" "}
-                {typeof food.nutrition.protein})
-              </Text> */}
-              <Text>{food.nutrition.protein}g protein</Text>
-              <Text>{food.nutrition.carbs}g carbs</Text>
-              <Text>{food.nutrition.fat}g fat</Text>
+            <View key={food.id} style={styles.foodItem}>
+              <View style={styles.foodInfo}>
+                <Text>{food.name}</Text>
+                <Text>{food.nutrition.calories} calories</Text>
+                <Text>{food.nutrition.protein}g protein</Text>
+                <Text>{food.nutrition.carbs}g carbs</Text>
+                <Text>{food.nutrition.fat}g fat</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.removeButton}
+                onPress={() => removeFood(food.id)}
+              >
+                <Text style={styles.removeButtonText}>X</Text>
+              </TouchableOpacity>
             </View>
           );
         })
@@ -54,6 +58,31 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
+    fontWeight: "bold",
+  },
+  foodItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "white",
+    padding: 15,
+    marginVertical: 5,
+    borderRadius: 8,
+  },
+  foodInfo: {
+    flex: 1,
+  },
+  removeButton: {
+    backgroundColor: "#e74c3c",
+    borderRadius: 15,
+    width: 30,
+    height: 30,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  removeButtonText: {
+    color: "white",
+    fontSize: 18,
     fontWeight: "bold",
   },
 });
