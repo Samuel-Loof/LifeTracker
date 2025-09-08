@@ -20,7 +20,7 @@ export default function HomeScreen() {
       </View>
       <Link href="/scanner" asChild>
         <TouchableOpacity style={styles.button}>
-          <Text style={styles.buttonText}>Scan Food</Text>{" "}
+          <Text style={styles.buttonText}>Scan Food</Text>
           {/*This should be a camera icon or a "+" */}
         </TouchableOpacity>
       </Link>
