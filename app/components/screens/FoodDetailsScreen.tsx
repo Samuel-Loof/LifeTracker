@@ -6,6 +6,8 @@ import {
   TextInput,
   TouchableOpacity,
   Modal,
+  ScrollView,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useFood } from "../FoodContext";
@@ -37,16 +39,7 @@ export default function FoodDetailsScreen() {
   const [selectedMeal, setSelectedMeal] = useState(
     (params.meal as string) || "breakfast"
   );
-  console.log("Received meal param:", params.meal);
-  console.log("Selected meal state:", selectedMeal);
   const [showMealPicker, setShowMealPicker] = useState(false);
-  //    current value    function to change it    starting value
-
-  // Think of it like a light switch:
-
-  // showMealPicker = Is the light on? (true/false)
-  // setShowMealPicker = The switch to turn it on/off
-  // useState(false) = Light starts off
 
   const handleUnitSelect = (unitValue: string) => {
     setSelectedUnit(unitValue);
@@ -65,24 +58,18 @@ export default function FoodDetailsScreen() {
 
     switch (selectedUnit) {
       case "gram":
-        // Base values are per 100g, so for X grams: divide by 100 then multiply by X
         conversionFactor = currentAmount / 100;
         break;
       case "serving":
-        console.log("Raw servingSize param:", params.servingSize);
         const servingSizeStr = String(params.servingSize || "100g");
-        // Extract just the numbers from "175 g" or "175g"
         const numbers = servingSizeStr.match(/\d+/);
         const servingSizeGrams = numbers ? parseInt(numbers[0]) : 100;
-        console.log("Parsed servingSizeGrams:", servingSizeGrams);
         conversionFactor = (currentAmount * servingSizeGrams) / 100;
         break;
       case "tablespoon":
-        // Assume 1 tablespoon = 15g
         conversionFactor = (currentAmount * 15) / 100;
         break;
       case "cup":
-        // Assume 1 cup = 240g (varies by food type)
         conversionFactor = (currentAmount * 240) / 100;
         break;
       default:
@@ -97,121 +84,265 @@ export default function FoodDetailsScreen() {
     };
   };
 
-  const currentNutrition = calculateNutrition(); // Calculate the current values
+  const currentNutrition = calculateNutrition();
+
+  // Placeholder percent values (daily goals not implemented yet)
+  const macroPercents = {
+    protein: 0,
+    carbs: 0,
+    fat: 0,
+  };
+
+  const onTrack = () => {
+    const foodItem = {
+      id: Date.now().toString(),
+      name: params.name as string,
+      brand: params.brand as string,
+      amount: parseFloat(amount),
+      unit: selectedUnit,
+      nutrition: {
+        calories: currentNutrition.calories,
+        protein: parseFloat(currentNutrition.protein),
+        carbs: parseFloat(currentNutrition.carbs),
+        fat: parseFloat(currentNutrition.fat),
+      },
+      timestamp: new Date(),
+      mealType: selectedMeal,
+    };
+
+    addFood(foodItem);
+    router.push(`/components/screens/DailyIntakeScreen?meal=${selectedMeal}`);
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{params.name}</Text>
-      <Text style={styles.brand}>{params.brand}</Text>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* Title: name (brand) */}
+        <Text style={styles.title}>
+          {params.name}
+          {params.brand ? ` (${params.brand})` : ""}
+        </Text>
 
-      {/* Serving selector section */}
-      <View style={styles.servingContainer}>
-        <Text style={styles.label}>Amount</Text>
-        <View style={styles.inputRow}>
-          <TextInput
-            style={styles.amountInput}
-            value={amount}
-            onChangeText={setAmount}
-            keyboardType="numeric"
-            placeholder="1"
-          />
-          <TouchableOpacity
-            style={styles.unitButton}
-            onPress={() => setShowUnitPicker(true)}
-          >
-            <Text style={styles.unitText}>
-              {SERVING_UNITS.find((u) => u.value === selectedUnit)?.label}
-            </Text>
-          </TouchableOpacity>
+        {/* Amount + Serving row */}
+        <View style={styles.cardRow}>
+          <Text style={styles.labelInline}>Amount</Text>
+          <View style={styles.row}>
+            <TextInput
+              style={[styles.amountInput, { marginRight: 10 }]}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="numeric"
+              placeholder="1"
+            />
+            <TouchableOpacity
+              style={styles.unitButton}
+              onPress={() => setShowUnitPicker(true)}
+            >
+              <View style={styles.unitButtonContent}>
+                <Text style={styles.unitText}>
+                  {SERVING_UNITS.find((u) => u.value === selectedUnit)?.label}
+                </Text>
+                <Text style={styles.chevron}>▼</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-          {/* Meal button */}
+        {/* Meal row */}
+        <View style={styles.cardRow}>
+          <Text style={styles.labelInline}>Meal</Text>
           <TouchableOpacity
             style={styles.mealButton}
             onPress={() => setShowMealPicker(true)}
           >
-            <Text style={styles.mealText}>{selectedMeal}</Text>
+            <View style={styles.unitButtonContent}>
+              <Text style={styles.mealText}>{selectedMeal}</Text>
+              <Text style={styles.chevron}>▼</Text>
+            </View>
           </TouchableOpacity>
         </View>
-      </View>
 
-      {/* Current nutrition display */}
-      <View style={styles.nutritionContainer}>
-        <Text style={styles.nutritionTitle}>
-          Nutrition ({amount} {selectedUnit})
-        </Text>
-        <Text>Calories: {currentNutrition.calories}</Text>
-        <Text>Protein: {currentNutrition.protein}g</Text>
-        <Text>Carbs: {currentNutrition.carbs}g</Text>
-        <Text>Fat: {currentNutrition.fat}g</Text>
-      </View>
+        {/* Calories row */}
+        <View style={styles.cardRow}>
+          <Text style={styles.labelInline}>Calories</Text>
+          <Text style={styles.caloriesText}>{currentNutrition.calories}</Text>
+        </View>
 
-      {/* Track button - the one with food saving logic */}
-      <TouchableOpacity
-        style={styles.trackButton}
-        onPress={() => {
-          const foodItem = {
-            id: Date.now().toString(),
-            name: params.name as string,
-            brand: params.brand as string,
-            amount: parseFloat(amount),
-            unit: selectedUnit,
-            nutrition: {
-              calories: currentNutrition.calories,
-              protein: parseFloat(currentNutrition.protein),
-              carbs: parseFloat(currentNutrition.carbs),
-              fat: parseFloat(currentNutrition.fat),
-            },
-            timestamp: new Date(),
-            mealType: selectedMeal,
-          };
-
-          addFood(foodItem);
-          console.log("Food added to daily intake:", foodItem);
-          router.push(
-            `/components/screens/DailyIntakeScreen?meal=${selectedMeal}`
-          );
-        }}
-      >
-        <Text style={styles.trackButtonText}>TRACK</Text>
-      </TouchableOpacity>
-
-      {/* Unit picker modal (INSIDE the return, at the end) */}
-      <Modal visible={showUnitPicker} transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Unit</Text>
-            {SERVING_UNITS.map((unit) => (
-              <TouchableOpacity
-                key={unit.value}
-                style={styles.optionButton}
-                onPress={() => handleUnitSelect(unit.value)}
-              >
-                <Text style={styles.optionText}>{unit.label}</Text>
-              </TouchableOpacity>
-            ))}
+        {/* Macro circles row */}
+        <View style={styles.cardBlock}>
+          <Text style={styles.blockTitle}>This food</Text>
+          <View style={styles.macroRow}>
+            <View style={styles.macroItem}>
+              <View style={styles.circle}>
+                <Text
+                  style={styles.circlePercent}
+                >{`${macroPercents.protein}%`}</Text>
+              </View>
+              <Text style={styles.macroLabel}>Protein</Text>
+              <Text
+                style={styles.macroGrams}
+              >{`${currentNutrition.protein} g`}</Text>
+            </View>
+            <View style={styles.macroItem}>
+              <View style={styles.circle}>
+                <Text
+                  style={styles.circlePercent}
+                >{`${macroPercents.carbs}%`}</Text>
+              </View>
+              <Text style={styles.macroLabel}>Carbs</Text>
+              <Text
+                style={styles.macroGrams}
+              >{`${currentNutrition.carbs} g`}</Text>
+            </View>
+            <View style={styles.macroItem}>
+              <View style={styles.circle}>
+                <Text
+                  style={styles.circlePercent}
+                >{`${macroPercents.fat}%`}</Text>
+              </View>
+              <Text style={styles.macroLabel}>Fat</Text>
+              <Text
+                style={styles.macroGrams}
+              >{`${currentNutrition.fat} g`}</Text>
+            </View>
           </View>
         </View>
+
+        {/* Food Quality (premium gated) */}
+        <View style={styles.cardBlock}>
+          <Text style={styles.blockTitle}>Food Quality</Text>
+          <View style={styles.premiumWrapper}>
+            <View style={styles.premiumOverlay} pointerEvents="none" />
+            <View style={styles.qualityContent}>
+              <Text style={styles.qualityText}>
+                Protein quality details (e.g., leucine content)
+              </Text>
+              <Text style={styles.qualitySubtext}>Premium feature</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Nutrition information expanded */}
+        <View style={styles.cardBlock}>
+          <Text style={styles.blockTitle}>Nutrition information</Text>
+          <View style={styles.nutriList}>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Calories</Text>
+              <Text style={styles.nutriValue}>{currentNutrition.calories}</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Protein</Text>
+              <Text style={styles.nutriValue}>
+                {currentNutrition.protein} g
+              </Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Carbs</Text>
+              <Text style={styles.nutriValue}>{currentNutrition.carbs} g</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Fiber</Text>
+              <Text style={styles.nutriValue}>—</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Sugars</Text>
+              <Text style={styles.nutriValue}>—</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Fat</Text>
+              <Text style={styles.nutriValue}>{currentNutrition.fat} g</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Saturated fat</Text>
+              <Text style={styles.nutriValue}>—</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Unsaturated fat</Text>
+              <Text style={styles.nutriValue}>—</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Cholesterol</Text>
+              <Text style={styles.nutriValue}>—</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Sodium</Text>
+              <Text style={styles.nutriValue}>—</Text>
+            </View>
+            <View style={styles.nutriRow}>
+              <Text style={styles.nutriLabel}>Potassium</Text>
+              <Text style={styles.nutriValue}>—</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Spacer to avoid overlap with bottom button */}
+        <View style={{ height: 12 }} />
+
+        {/* Track button */}
+        <TouchableOpacity style={styles.trackButton} onPress={onTrack}>
+          <Text style={styles.trackButtonText}>TRACK</Text>
+        </TouchableOpacity>
+
+        <View style={{ height: 16 }} />
+      </ScrollView>
+
+      {/* Unit picker modal */}
+      <Modal visible={showUnitPicker} transparent={true} animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowUnitPicker(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setShowUnitPicker(false)}>
+                    <Text style={styles.modalClose}>×</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Select Unit</Text>
+                  <View style={{ width: 24 }} />
+                </View>
+                {SERVING_UNITS.map((unit) => (
+                  <TouchableOpacity
+                    key={unit.value}
+                    style={styles.optionButton}
+                    onPress={() => handleUnitSelect(unit.value)}
+                  >
+                    <Text style={styles.optionText}>{unit.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
       </Modal>
 
       {/* Meal picker modal */}
-      <Modal visible={showMealPicker} transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Selected Meal</Text>
-            {MEAL_OPTIONS.map((meal) => (
-              <TouchableOpacity
-                key={meal.value}
-                style={styles.optionButton}
-                onPress={() => {
-                  setSelectedMeal(meal.value);
-                  setShowMealPicker(false);
-                }}
-              >
-                <Text style={styles.optionText}>{meal.label}</Text>
-              </TouchableOpacity>
-            ))}
+      <Modal visible={showMealPicker} transparent={true} animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowMealPicker(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setShowMealPicker(false)}>
+                    <Text style={styles.modalClose}>×</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Select Meal</Text>
+                  <View style={{ width: 24 }} />
+                </View>
+                {MEAL_OPTIONS.map((meal) => (
+                  <TouchableOpacity
+                    key={meal.value}
+                    style={styles.optionButton}
+                    onPress={() => {
+                      setSelectedMeal(meal.value);
+                      setShowMealPicker(false);
+                    }}
+                  >
+                    <Text style={styles.optionText}>{meal.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </View>
   );
@@ -220,36 +351,42 @@ export default function FoodDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#f8f9fa",
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 5,
-  },
-  brand: {
-    fontSize: 18,
-    color: "#666",
-    marginBottom: 20,
-  },
-  // Serving selector
-  servingContainer: {
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 10,
+    marginBottom: 16,
     color: "#2c3e50",
   },
-  inputRow: {
+  // Card-ish rows
+  cardRow: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  labelInline: {
+    fontSize: 13,
+    color: "#7f8c8d",
+    marginBottom: 8,
+  },
+  row: {
     flexDirection: "row",
     alignItems: "center",
   },
+  caloriesText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#2c3e50",
+  },
+  // Inputs and selectors
   amountInput: {
     flex: 1,
     borderWidth: 1,
@@ -257,32 +394,139 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    marginRight: 10,
+    backgroundColor: "#fff",
   },
   unitButton: {
-    flex: 2,
-    backgroundColor: "#3498db",
+    flex: 1.4,
+    backgroundColor: "#fff",
     padding: 12,
     borderRadius: 8,
     alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  unitButtonContent: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   unitText: {
-    color: "white",
+    color: "#2c3e50",
     fontSize: 16,
     fontWeight: "600",
   },
-  // Nutrition display
-  nutritionContainer: {
-    backgroundColor: "white",
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
+  chevron: {
+    color: "#7f8c8d",
+    fontSize: 14,
   },
-  nutritionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    marginBottom: 10,
+  mealButton: {
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  mealText: {
     color: "#2c3e50",
+    fontSize: 16,
+    fontWeight: "600",
+    textTransform: "capitalize",
+  },
+  // Card block
+  cardBlock: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  blockTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+    color: "#2c3e50",
+  },
+  // Macro circles
+  macroRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  macroItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  circle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 8,
+    borderColor: "#e6eef4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  circlePercent: {
+    fontSize: 14,
+    color: "#2c3e50",
+    fontWeight: "600",
+  },
+  macroLabel: {
+    fontSize: 13,
+    color: "#7f8c8d",
+  },
+  macroGrams: {
+    fontSize: 13,
+    color: "#2c3e50",
+    fontWeight: "600",
+  },
+  // Premium gate
+  premiumWrapper: {
+    position: "relative",
+    borderRadius: 8,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  premiumOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(255,255,255,0.7)",
+  },
+  qualityContent: {
+    padding: 16,
+    alignItems: "center",
+  },
+  qualityText: {
+    fontSize: 14,
+    color: "#2c3e50",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  qualitySubtext: {
+    fontSize: 12,
+    color: "#7f8c8d",
+  },
+  // Nutrition list
+  nutriList: {
+    gap: 8,
+  },
+  nutriRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  nutriLabel: {
+    color: "#7f8c8d",
+    fontSize: 14,
+  },
+  nutriValue: {
+    color: "#2c3e50",
+    fontSize: 14,
+    fontWeight: "600",
   },
   // Track button
   trackButton: {
@@ -290,7 +534,7 @@ const styles = StyleSheet.create({
     padding: 15,
     borderRadius: 10,
     alignItems: "center",
-    marginTop: "auto",
+    marginTop: 4,
   },
   trackButtonText: {
     color: "white",
@@ -303,18 +547,30 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   modalContent: {
     backgroundColor: "white",
     borderRadius: 10,
-    padding: 20,
-    width: "80%",
-    maxHeight: "50%",
+    padding: 10,
+    width: "85%",
+    maxHeight: "60%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 6,
+  },
+  modalClose: {
+    fontSize: 24,
+    color: "#2c3e50",
+    width: 24,
+    textAlign: "left",
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 15,
     textAlign: "center",
   },
   optionButton: {
@@ -325,19 +581,5 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     textAlign: "center",
-  },
-
-  mealButton: {
-    flex: 1,
-    backgroundColor: "#e74c3c",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
-    marginLeft: 10,
-  },
-  mealText: {
-    color: "white",
-    fontSize: 14,
-    fontWeight: "600",
   },
 });

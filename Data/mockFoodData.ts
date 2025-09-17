@@ -1,4 +1,4 @@
-export interface FoodItem {
+export interface MockFoodItem {
   id: string;
   name: string;
   calories: number;
@@ -8,7 +8,7 @@ export interface FoodItem {
   barcode?: string;
 }
 
-export const mockFoodDatabase: FoodItem[] = [
+export const mockFoodDatabase: MockFoodItem[] = [
   {
     id: '1',
     name: 'Apple',
@@ -38,6 +38,6 @@ export const mockFoodDatabase: FoodItem[] = [
   },
 ];
 
-export const findFoodByBarcode = (barcode: string): FoodItem | undefined => {
+export const findFoodByBarcode = (barcode: string): MockFoodItem | undefined => {
   return mockFoodDatabase.find(item => item.barcode === barcode);
 };

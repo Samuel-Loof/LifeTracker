@@ -8,7 +8,7 @@ import React, {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Define types
-interface FoodItem {
+export interface FoodItem {
   id: string;
   name: string;
   brand: string;
