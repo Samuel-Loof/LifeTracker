@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,18 +10,42 @@ import {
 import { useRouter, useLocalSearchParams, Link } from "expo-router";
 import { useFood, FoodItem } from "../FoodContext"; // To get recent foods
 import { FlatList } from "react-native";
+import { FoodData, searchFoodByName } from "../FoodDataService";
 
 export default function AddFoodScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const { dailyFoods, addFood } = useFood();
+  // Search and filters
+  const [query, setQuery] = useState("");
+  const [apiResults, setApiResults] = useState<FoodData[]>([]);
+  const [searching, setSearching] = useState(false);
+
+  // API search function when the user types in the search bar
+  useEffect(() => {
+    const searchAPI = async () => {
+      const trimmed = query.trim();
+      if (trimmed.length < 3) {
+        setApiResults([]);
+        return;
+      }
+      setSearching(true);
+      try {
+        const results = await searchFoodByName(trimmed);
+        setApiResults(results);
+      } finally {
+        setSearching(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchAPI, 444);
+    return () => clearTimeout(debounceTimer);
+  }, [query]);
 
   const mealType = Array.isArray(params.meal)
     ? params.meal[0]
     : (params.meal as string) || "all";
 
-  // Search and filters
-  const [query, setQuery] = useState("");
   const [selectedTab, setSelectedTab] = useState<
     "recent" | "favorites" | "added"
   >("recent");
@@ -64,6 +88,23 @@ export default function AddFoodScreen() {
   const favoriteFoods: FoodItem[] = [];
   const addedFoods: FoodItem[] = [];
 
+  // Convert API FoodData -> UI FoodItem (default 1 serving)
+  const mapApiToFoodItem = (f: FoodData): FoodItem => ({
+    id: `api:${f.barcode || `${f.name}|${f.brand}`}`,
+    name: f.name,
+    brand: f.brand,
+    amount: 1,
+    unit: "serving",
+    nutrition: {
+      calories: Number(f.calories) || 0,
+      protein: Number(f.protein) || 0,
+      carbs: Number(f.carbs) || 0,
+      fat: Number(f.fat) || 0,
+    },
+    timestamp: new Date(),
+    mealType: mealType,
+  });
+
   const currentList = useMemo(() => {
     let base: FoodItem[] = [];
     if (selectedTab === "recent") base = uniqueRecentFoods;
@@ -76,6 +117,27 @@ export default function AddFoodScreen() {
       `${f.name} ${f.brand} ${f.mealType}`.toLowerCase().includes(q)
     );
   }, [selectedTab, uniqueRecentFoods, favoriteFoods, addedFoods, query]);
+
+  // When searching, merge API results with local filtered items (dedup by name|brand)
+  const displayList: FoodItem[] = useMemo(() => {
+    const trimmed = query.trim();
+    if (!trimmed) return currentList;
+
+    const seen = new Set<string>();
+    const byKey = (f: FoodItem) => `${f.name}|${f.brand}`.toLowerCase();
+
+    const localPart: FoodItem[] = currentList;
+    const apiPart: FoodItem[] = apiResults.map(mapApiToFoodItem);
+
+    const merged: FoodItem[] = [];
+    for (const item of [...localPart, ...apiPart]) {
+      const key = byKey(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+    }
+    return merged;
+  }, [query, currentList, apiResults]);
 
   const addRecentFood = (food: FoodItem) => {
     const newFoodItem: FoodItem = {
@@ -306,11 +368,11 @@ export default function AddFoodScreen() {
 
       {/* List */}
       <View style={styles.recentSection}>
-        {currentList.length === 0 ? (
+        {displayList.length === 0 ? (
           <Text style={styles.emptyText}>No foods found</Text>
         ) : (
           <FlatList
-            data={currentList}
+            data={displayList}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <View style={styles.foodItem}>

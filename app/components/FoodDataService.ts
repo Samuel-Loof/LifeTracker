@@ -62,3 +62,44 @@ export const isValidBarcode = (barcode: string): boolean => {
     const cleanBarcode = barcode.replace(/[^0-9]/g, '');
     return cleanBarcode.length >= 8 && cleanBarcode.length <= 13;
 };
+
+export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
+    try {
+      // OpenFoodFacts search endpoint
+      const response = await fetch(
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=20`,
+        {
+          headers: {
+            'User-Agent': USER_AGENT
+          }
+        }
+      );
+
+      const data = await response.json();
+
+      // Check if we got results
+      if (!data.products || data.products.length === 0) {
+        console.log('No products found for query:', query);
+        return [];
+      }
+
+      // Convert API results to our FoodData format
+      return data.products.map((product: any) => {
+        const nutriments = product.nutriments || {};
+        return {
+            barcode: product.code || '',
+        name: product.product_name || 'Unknown Product',
+        brand: product.brands || 'Unknown Brand',
+        calories: nutriments.energy ? Math.round(nutriments.energy * 0.239) : 0,
+        protein: nutriments.proteins_100g || 0,
+        carbs: nutriments.carbohydrates_100g || 0,
+        fat: nutriments.fat_100g || 0,
+        servingSize: product.serving_size || undefined,
+        caloriesPerServing: nutriments.energy_kcal_serving || undefined,
+        };
+      }) .filter((food: FoodData) => food.name  !== 'Unknown Product'); // Filter out invalid results
+    } catch (error) {
+        console.error('Error searching food by name:', error);
+        return [];
+    }
+};
