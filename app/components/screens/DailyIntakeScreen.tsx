@@ -11,7 +11,7 @@ import { useFood } from "../FoodContext";
 
 export default function DailyIntakeScreen() {
   const router = useRouter();
-  const { dailyFoods, removeFood } = useFood();
+  const { dailyFoods, removeFood, userGoals } = useFood();
   const params = useLocalSearchParams();
   const mealType = (params.meal as string) || "all";
 
@@ -45,10 +45,72 @@ export default function DailyIntakeScreen() {
     day: "numeric",
   });
 
-  // Placeholder goals and premium
-  const goals = { calories: 2000, protein: 150, carbs: 250, fat: 70 };
+  // Derive goals from userGoals
+  const activityFactor: Record<string, number> = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    veryActive: 1.9,
+  };
+  const bmr = useMemo(() => {
+    if (!userGoals) return 0;
+    const s = userGoals.sex === "male" ? 5 : -161;
+    if (!userGoals.age || !userGoals.heightCm || !userGoals.weightKg) return 0;
+    return Math.round(
+      10 * userGoals.weightKg +
+        6.25 * userGoals.heightCm -
+        5 * userGoals.age +
+        s
+    );
+  }, [userGoals]);
+  const tdee = useMemo(() => {
+    if (!userGoals) return 0;
+    return Math.round(bmr * (activityFactor[userGoals.activity] || 1.2));
+  }, [bmr, userGoals]);
+  const targetCalories = useMemo(() => {
+    if (!userGoals) return 2000;
+    if (userGoals.useManualCalories && (userGoals.manualCalories || 0) > 0)
+      return userGoals.manualCalories as number;
+    const base = tdee || 0;
+    let delta = 0;
+    if (userGoals.strategy === "gain") {
+      delta =
+        userGoals.pace === "moderate"
+          ? 500
+          : userGoals.pace === "slow"
+          ? 250
+          : userGoals.manualCalorieDelta || 0;
+    } else if (userGoals.strategy === "lose") {
+      delta =
+        userGoals.pace === "moderate"
+          ? -500
+          : userGoals.pace === "slow"
+          ? -250
+          : userGoals.manualCalorieDelta || 0;
+    }
+    return Math.max(0, Math.round(base + delta));
+  }, [userGoals, tdee]);
+  const goals = useMemo(() => {
+    // macros recommendation
+    if (!userGoals)
+      return { calories: targetCalories, protein: 150, carbs: 250, fat: 70 };
+    const weight = userGoals.weightKg || 0;
+    let protein = Math.round(
+      (userGoals.cuttingKeepMuscle ? 2.0 : 1.6) * weight
+    );
+    let fat = Math.max(Math.round(0.5 * weight), 30);
+    const remaining = Math.max(targetCalories - protein * 4 - fat * 9, 0);
+    let carbs = Math.round(remaining / 4);
+    if (userGoals.useManualMacros) {
+      protein = Math.round(userGoals.manualProtein || 0);
+      carbs = Math.round(userGoals.manualCarbs || 0);
+      fat = Math.round(userGoals.manualFat || 0);
+    }
+    return { calories: targetCalories, protein, carbs, fat };
+  }, [userGoals, targetCalories]);
   const percent = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
-  const isPremium = false;
+  const isPremium = true;
 
   return (
     <View style={styles.container}>
@@ -66,11 +128,22 @@ export default function DailyIntakeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Big calories circle */}
+        {/* Big calories circle: show left/over */}
         <View style={styles.bigCircleWrapper}>
           <View style={styles.bigCircle}>
-            <Text style={styles.bigCircleNumber}>{totals.calories}</Text>
-            <Text style={styles.bigCircleSub}>kcal eaten</Text>
+            {(() => {
+              const diff = (goals.calories || 0) - (totals.calories || 0);
+              const isOver = diff < 0;
+              const abs = Math.abs(diff);
+              return (
+                <>
+                  <Text style={styles.bigCircleNumber}>{abs}</Text>
+                  <Text style={styles.bigCircleSub}>
+                    {isOver ? "kcal over" : "kcal left"}
+                  </Text>
+                </>
+              );
+            })()}
           </View>
         </View>
 
@@ -135,7 +208,9 @@ export default function DailyIntakeScreen() {
           <SummaryRow
             label="Protein"
             value={`${totals.protein.toFixed(1)} g`}
-            subLabel={isPremium ? "Avg quality:  —" : "Avg quality: 🔒"}
+            subLabel={`Avg quality: ${computeAverageProteinQuality(
+              mealFoods
+            ).toFixed(2)}`}
             barPercent={percent(totals.protein, goals.protein)}
             color="#8BC34A"
           />
@@ -232,6 +307,31 @@ function SummaryRow({
       ) : null}
     </View>
   );
+}
+// Rough heuristic protein quality lookup. In future, persist on food items.
+function lookupProteinQuality(name: string): number {
+  const n = name.toLowerCase();
+  if (/(egg|whey|casein|milk|beef|fish)/.test(n)) return 1.0;
+  if (/(soy isolate|soy protein isolate)/.test(n)) return 1.0;
+  if (/quinoa|pea protein|canola protein|potato protein/.test(n)) return 0.8;
+  if (/lentil|chickpea|bean|kidney bean|black bean|navy bean|pinto/.test(n))
+    return 0.65;
+  if (/oat|wheat|rice|barley|grain/.test(n)) return 0.5;
+  if (/almond|peanut|nut|seed/.test(n)) return 0.4;
+  return 0.7; // default mid quality
+}
+
+function computeAverageProteinQuality(foods: any[]): number {
+  let totalProtein = 0;
+  let weighted = 0;
+  for (const f of foods) {
+    const p = Number(f.nutrition?.protein) || 0;
+    const q = lookupProteinQuality(f.name || "");
+    totalProtein += p;
+    weighted += p * q;
+  }
+  if (totalProtein <= 0) return 0;
+  return weighted / totalProtein;
 }
 
 const styles = StyleSheet.create({

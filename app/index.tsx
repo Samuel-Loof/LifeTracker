@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -7,25 +7,120 @@ import {
   ScrollView,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
+import { useFood } from "./components/FoodContext";
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { dailyFoods, userGoals } = useFood();
 
-  // Placeholder values until goals and exercise exist
-  const caloriesEaten = 0;
-  const caloriesBurned = 0;
-  const caloriesGoal = 2000; // placeholder
-  const caloriesLeft = Math.max(
-    caloriesGoal - caloriesEaten + caloriesBurned,
-    0
-  );
+  // Derive totals from foods
+  const totals = useMemo(() => {
+    return dailyFoods.reduce(
+      (acc, f) => {
+        acc.calories += Number(f.nutrition.calories) || 0;
+        acc.protein += Number(f.nutrition.protein) || 0;
+        acc.carbs += Number(f.nutrition.carbs) || 0;
+        acc.fat += Number(f.nutrition.fat) || 0;
+        return acc;
+      },
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+  }, [dailyFoods]);
 
-  const proteinCurrent = 0; // g
-  const proteinGoal = 150; // placeholder
-  const carbsCurrent = 0;
-  const carbsGoal = 250; // placeholder
-  const fatCurrent = 0;
-  const fatGoal = 70; // placeholder
+  // Compute target from userGoals
+  const activityFactor: Record<string, number> = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    veryActive: 1.9,
+  };
+  const bmr = useMemo(() => {
+    if (!userGoals) return 0;
+    const s = userGoals.sex === "male" ? 5 : -161;
+    if (!userGoals.age || !userGoals.heightCm || !userGoals.weightKg) return 0;
+    return Math.round(
+      10 * userGoals.weightKg +
+        6.25 * userGoals.heightCm -
+        5 * userGoals.age +
+        s
+    );
+  }, [userGoals]);
+  const tdee = useMemo(() => {
+    if (!userGoals) return 0;
+    return Math.round(bmr * (activityFactor[userGoals.activity] || 1.2));
+  }, [bmr, userGoals]);
+  const targetCalories = useMemo(() => {
+    if (!userGoals) return 2000;
+    if (userGoals.useManualCalories && (userGoals.manualCalories || 0) > 0)
+      return userGoals.manualCalories as number;
+    const base = tdee || 0;
+    let delta = 0;
+    if (userGoals.strategy === "gain") {
+      delta =
+        userGoals.pace === "moderate"
+          ? 500
+          : userGoals.pace === "slow"
+          ? 250
+          : userGoals.manualCalorieDelta || 0;
+    } else if (userGoals.strategy === "lose") {
+      delta =
+        userGoals.pace === "moderate"
+          ? -500
+          : userGoals.pace === "slow"
+          ? -250
+          : userGoals.manualCalorieDelta || 0;
+    }
+    return Math.max(0, Math.round(base + delta));
+  }, [userGoals, tdee]);
+
+  const goalBadge = useMemo(() => {
+    if (!userGoals) return "Maintain";
+    if (userGoals.useManualCalories && (userGoals.manualCalories || 0) > 0) {
+      return "Custom kcal";
+    }
+    let delta = 0;
+    if (userGoals.strategy === "gain") {
+      delta =
+        userGoals.pace === "moderate"
+          ? 500
+          : userGoals.pace === "slow"
+          ? 250
+          : userGoals.manualCalorieDelta || 0;
+      return `Gain ${delta > 0 ? "+" : ""}${delta}`;
+    }
+    if (userGoals.strategy === "lose") {
+      delta =
+        userGoals.pace === "moderate"
+          ? -500
+          : userGoals.pace === "slow"
+          ? -250
+          : userGoals.manualCalorieDelta || 0;
+      return `Lose ${delta}`;
+    }
+    return "Maintain";
+  }, [userGoals]);
+
+  // Macro goals
+  const macroGoals = useMemo(() => {
+    if (!userGoals) return { protein: 150, carbs: 250, fat: 70 };
+    const weight = userGoals.weightKg || 0;
+    let protein = Math.round(
+      (userGoals.cuttingKeepMuscle ? 2.0 : 1.6) * weight
+    );
+    let fat = Math.max(Math.round(0.5 * weight), 30);
+    const remaining = Math.max(targetCalories - protein * 4 - fat * 9, 0);
+    let carbs = Math.round(remaining / 4);
+    if (userGoals.useManualMacros) {
+      protein = Math.round(userGoals.manualProtein || 0);
+      carbs = Math.round(userGoals.manualCarbs || 0);
+      fat = Math.round(userGoals.manualFat || 0);
+    }
+    return { protein, carbs, fat };
+  }, [userGoals, targetCalories]);
+
+  const caloriesLeft = Math.abs((targetCalories || 0) - (totals.calories || 0));
+  const over = (totals.calories || 0) > (targetCalories || 0);
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -65,7 +160,7 @@ export default function HomeScreen() {
         <View style={{ width: 28 }} />
         <Text style={styles.headerTitle}>LifeTrack3r</Text>
         <TouchableOpacity
-          onPress={() => router.push("/components/screens/ProfileScreen")}
+          onPress={() => router.push("/components/screens/UserProfileScreen")}
           style={styles.profileButton}
         >
           <Text style={styles.profileIcon}>🙂</Text>
@@ -77,11 +172,14 @@ export default function HomeScreen() {
         <View style={styles.bigCircleWrapper}>
           <View style={styles.bigCircle}>
             <Text style={styles.bigCircleNumber}>{caloriesLeft}</Text>
-            <Text style={styles.bigCircleSub}>cal left</Text>
+            <Text style={styles.bigCircleSub}>
+              {over ? "kcal over" : "kcal left"}
+            </Text>
           </View>
+          <Text style={styles.goalBadge}>{goalBadge}</Text>
           <View style={styles.bigCircleSideRow}>
-            <Text style={styles.sideLabel}>{caloriesEaten} eaten</Text>
-            <Text style={styles.sideLabel}>{caloriesBurned} burned</Text>
+            <Text style={styles.sideLabel}>{totals.calories} eaten</Text>
+            <Text style={styles.sideLabel}>{targetCalories} goal</Text>
           </View>
         </View>
 
@@ -89,20 +187,20 @@ export default function HomeScreen() {
         <View style={styles.card}>
           <MacroBar
             label="Protein"
-            current={proteinCurrent}
-            goal={proteinGoal}
+            current={totals.protein}
+            goal={macroGoals.protein}
             color="#E57373"
           />
           <MacroBar
             label="Carbs"
-            current={carbsCurrent}
-            goal={carbsGoal}
+            current={totals.carbs}
+            goal={macroGoals.carbs}
             color="#FFB74D"
           />
           <MacroBar
             label="Fat"
-            current={fatCurrent}
-            goal={fatGoal}
+            current={totals.fat}
+            goal={macroGoals.fat}
             color="#9575CD"
           />
         </View>
@@ -219,6 +317,17 @@ const styles = StyleSheet.create({
   bigCircleSub: {
     fontSize: 14,
     color: "#7f8c8d",
+  },
+  goalBadge: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#2c3e50",
+    backgroundColor: "#fff",
+    borderColor: "#eee",
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   bigCircleSideRow: {
     width: 220,

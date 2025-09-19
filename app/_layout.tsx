@@ -17,6 +17,14 @@ export default function RootLayout() {
           name="components/screens/DailyIntakeScreen"
           options={{ title: "Today's Intake" }}
         />
+        <Stack.Screen
+          name="components/screens/UserProfileScreen"
+          options={{ title: "Profile" }}
+        />
+        <Stack.Screen
+          name="components/screens/FastingScreen"
+          options={{ title: "Fasting" }}
+        />
       </Stack>
     </FoodProvider>
   );
