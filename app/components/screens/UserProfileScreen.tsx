@@ -23,6 +23,7 @@ export default function UserProfileScreen() {
   const router = useRouter();
   const { userGoals, habits } = useFood();
 
+  const [firstName, setFirstName] = useState<string>("John");
   const [sex, setSex] = useState<Sex>("male");
   const [age, setAge] = useState<string>("30");
   const [heightCm, setHeightCm] = useState<string>("175");
@@ -36,6 +37,7 @@ export default function UserProfileScreen() {
   // Load data from context
   useEffect(() => {
     if (userGoals) {
+      setFirstName(userGoals.firstName || "John");
       setSex(userGoals.sex);
       setAge(userGoals.age.toString());
       setHeightCm(userGoals.heightCm.toString());
@@ -56,6 +58,51 @@ export default function UserProfileScreen() {
     }),
     [age, heightCm, weightKg]
   );
+
+  // Calculate BMR using Mifflin-St Jeor equation
+  const bmr = useMemo(() => {
+    if (sex === "male") {
+      return 10 * parsed.weight + 6.25 * parsed.height - 5 * parsed.age + 5;
+    } else {
+      return 10 * parsed.weight + 6.25 * parsed.height - 5 * parsed.age - 161;
+    }
+  }, [sex, parsed.weight, parsed.height, parsed.age]);
+
+  // Activity multipliers
+  const activityMultipliers = {
+    sedentary: 1.2,
+    light: 1.375,
+    moderate: 1.55,
+    active: 1.725,
+    veryActive: 1.9,
+  };
+
+  // Calculate TDEE
+  const tdee = useMemo(() => {
+    return Math.round(bmr * activityMultipliers[activity]);
+  }, [bmr, activity]);
+
+  // Calculate target calories
+  const targetCalories = useMemo(() => {
+    let delta = 0;
+    if (strategy === "gain") {
+      delta =
+        pace === "moderate"
+          ? 500
+          : pace === "slow"
+          ? 250
+          : parseInt(manualDelta) || 0;
+    } else if (strategy === "lose") {
+      delta =
+        pace === "moderate"
+          ? -500
+          : pace === "slow"
+          ? -250
+          : -(parseInt(manualDelta) || 0);
+    }
+
+    return Math.max(0, tdee + delta);
+  }, [tdee, strategy, pace, manualDelta]);
 
   // Get goal description
   const getGoalDescription = () => {
@@ -111,7 +158,7 @@ export default function UserProfileScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Username</Text>
-            <Text style={styles.infoValue}>John Doe</Text>
+            <Text style={styles.infoValue}>{firstName}</Text>
           </View>
 
           <View style={styles.infoRow}>
@@ -146,6 +193,11 @@ export default function UserProfileScreen() {
               <Text style={styles.arrow}>→</Text>
             </View>
           </TouchableOpacity>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Calorie Goal</Text>
+            <Text style={styles.infoValue}>{targetCalories} kcal/day</Text>
+          </View>
         </View>
 
         {/* Customization Block */}
@@ -159,6 +211,18 @@ export default function UserProfileScreen() {
             }
           >
             <Text style={styles.customizationButtonText}>Personal Details</Text>
+            <Text style={styles.customizationButtonArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.customizationButton}
+            onPress={() =>
+              router.push("/components/screens/CaloriesMacrosScreen")
+            }
+          >
+            <Text style={styles.customizationButtonText}>
+              Calories & Macros
+            </Text>
             <Text style={styles.customizationButtonArrow}>→</Text>
           </TouchableOpacity>
         </View>

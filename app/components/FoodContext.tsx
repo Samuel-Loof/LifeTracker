@@ -43,6 +43,7 @@ export type GoalStrategy = "maintain" | "gain" | "lose";
 export type GoalPace = "slow" | "moderate" | "custom";
 
 export interface UserGoals {
+  firstName?: string;
   sex: Sex;
   age: number; // years
   heightCm: number;

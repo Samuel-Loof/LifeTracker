@@ -13,14 +13,6 @@ import { useFood } from "../FoodContext";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 type Sex = "male" | "female";
-type ActivityLevel =
-  | "sedentary"
-  | "light"
-  | "moderate"
-  | "active"
-  | "veryActive";
-type GoalStrategy = "maintain" | "gain" | "lose";
-type GoalPace = "slow" | "moderate" | "custom";
 
 export default function PersonalDetailsScreen() {
   const router = useRouter();
@@ -31,11 +23,6 @@ export default function PersonalDetailsScreen() {
   const [dateOfBirth, setDateOfBirth] = useState<Date>(new Date(1994, 0, 1)); // Default to 30 years old
   const [heightCm, setHeightCm] = useState<string>("175");
   const [weightKg, setWeightKg] = useState<string>("75");
-  const [activity, setActivity] = useState<ActivityLevel>("moderate");
-  const [strategy, setStrategy] = useState<GoalStrategy>("maintain");
-  const [pace, setPace] = useState<GoalPace>("moderate");
-  const [manualDelta, setManualDelta] = useState<string>("0");
-  const [cuttingKeepMuscle, setCuttingKeepMuscle] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   // Calculate age from date of birth
@@ -60,35 +47,20 @@ export default function PersonalDetailsScreen() {
       setSex(userGoals.sex);
       setHeightCm(userGoals.heightCm.toString());
       setWeightKg(userGoals.weightKg.toString());
-      setActivity(userGoals.activity);
-      setStrategy(userGoals.strategy);
-      setPace(userGoals.pace);
-      setManualDelta((userGoals.manualCalorieDelta || 0).toString());
-      setCuttingKeepMuscle(userGoals.cuttingKeepMuscle);
     }
   }, [userGoals]);
 
   const handleSave = async () => {
-    const goals = {
-      sex,
-      age,
-      heightCm: Number(heightCm) || 0,
-      weightKg: Number(weightKg) || 0,
-      activity,
-      strategy,
-      pace,
-      manualCalorieDelta: Number(manualDelta) || 0,
-      useManualCalories: false,
-      manualCalories: undefined,
-      cuttingKeepMuscle,
-      useManualMacros: false,
-      manualProtein: undefined,
-      manualCarbs: undefined,
-      manualFat: undefined,
-      minAverageProteinQuality: undefined,
-      minHighQualityProteinPercent: undefined,
-    } as const;
-    await setUserGoals(goals);
+    if (userGoals) {
+      const updatedGoals = {
+        ...userGoals,
+        sex,
+        age,
+        heightCm: Number(heightCm) || 0,
+        weightKg: Number(weightKg) || 0,
+      };
+      await setUserGoals(updatedGoals);
+    }
     router.back();
   };
 
@@ -98,18 +70,6 @@ export default function PersonalDetailsScreen() {
       month: "long",
       day: "numeric",
     });
-  };
-
-  // Get activity level description
-  const getActivityDescription = () => {
-    const activityMap = {
-      sedentary: "Sedentary",
-      light: "Light Activity",
-      moderate: "Moderate Activity",
-      active: "Active",
-      veryActive: "Very Active",
-    };
-    return activityMap[activity] || "Moderate Activity";
   };
 
   return (
@@ -195,18 +155,18 @@ export default function PersonalDetailsScreen() {
         {/* Gender */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Gender</Text>
-          <View style={styles.segmentedContainer}>
+          <View style={styles.genderContainer}>
             <TouchableOpacity
               style={[
-                styles.segmentedOption,
-                sex === "male" && styles.segmentedOptionActive,
+                styles.genderOption,
+                sex === "male" && styles.genderOptionActive,
               ]}
               onPress={() => setSex("male")}
             >
               <Text
                 style={[
-                  styles.segmentedText,
-                  sex === "male" && styles.segmentedTextActive,
+                  styles.genderText,
+                  sex === "male" && styles.genderTextActive,
                 ]}
               >
                 Male
@@ -214,15 +174,15 @@ export default function PersonalDetailsScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[
-                styles.segmentedOption,
-                sex === "female" && styles.segmentedOptionActive,
+                styles.genderOption,
+                sex === "female" && styles.genderOptionActive,
               ]}
               onPress={() => setSex("female")}
             >
               <Text
                 style={[
-                  styles.segmentedText,
-                  sex === "female" && styles.segmentedTextActive,
+                  styles.genderText,
+                  sex === "female" && styles.genderTextActive,
                 ]}
               >
                 Female
@@ -231,91 +191,7 @@ export default function PersonalDetailsScreen() {
           </View>
         </View>
 
-        {/* Goal */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Goal</Text>
-          <View style={styles.segmentedContainer}>
-            <TouchableOpacity
-              style={[
-                styles.segmentedOption,
-                strategy === "maintain" && styles.segmentedOptionActive,
-              ]}
-              onPress={() => setStrategy("maintain")}
-            >
-              <Text
-                style={[
-                  styles.segmentedText,
-                  strategy === "maintain" && styles.segmentedTextActive,
-                ]}
-              >
-                Maintain
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.segmentedOption,
-                strategy === "gain" && styles.segmentedOptionActive,
-              ]}
-              onPress={() => setStrategy("gain")}
-            >
-              <Text
-                style={[
-                  styles.segmentedText,
-                  strategy === "gain" && styles.segmentedTextActive,
-                ]}
-              >
-                Gain
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.segmentedOption,
-                strategy === "lose" && styles.segmentedOptionActive,
-              ]}
-              onPress={() => setStrategy("lose")}
-            >
-              <Text
-                style={[
-                  styles.segmentedText,
-                  strategy === "lose" && styles.segmentedTextActive,
-                ]}
-              >
-                Lose
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Diet */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Diet</Text>
-          <View style={styles.switchRow}>
-            <Text style={styles.switchLabel}>Cutting (2g/kg protein)</Text>
-            <Switch
-              value={cuttingKeepMuscle}
-              onValueChange={setCuttingKeepMuscle}
-            />
-          </View>
-        </View>
-
-        {/* Activity Level */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Activity Level</Text>
-          <TouchableOpacity
-            style={styles.clickableRow}
-            onPress={() =>
-              router.push("/components/screens/ActivityLevelScreen")
-            }
-          >
-            <Text style={styles.rowLabel}>Current Activity</Text>
-            <View style={styles.activityLevelContainer}>
-              <Text style={styles.rowValue}>{getActivityDescription()}</Text>
-              <Text style={styles.arrow}>→</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 16 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
 
       {/* Fixed bottom button */}
@@ -412,63 +288,6 @@ const styles = StyleSheet.create({
   dateButtonArrow: {
     fontSize: 16,
   },
-  segmentedContainer: {
-    flexDirection: "row",
-    backgroundColor: "#f0f0f0",
-    borderRadius: 8,
-    padding: 4,
-  },
-  segmentedOption: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    alignItems: "center",
-  },
-  segmentedOptionActive: {
-    backgroundColor: "#2c3e50",
-  },
-  segmentedText: {
-    fontSize: 16,
-    color: "#666",
-  },
-  segmentedTextActive: {
-    color: "white",
-    fontWeight: "600",
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  switchLabel: {
-    fontSize: 16,
-    color: "#2c3e50",
-  },
-  activityContainer: {
-    gap: 8,
-  },
-  activityOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    backgroundColor: "#f8f9fa",
-  },
-  activityOptionActive: {
-    backgroundColor: "#2c3e50",
-    borderColor: "#2c3e50",
-  },
-  activityText: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-  },
-  activityTextActive: {
-    color: "white",
-    fontWeight: "600",
-  },
   fixedButtonContainer: {
     position: "absolute",
     bottom: 40,
@@ -490,6 +309,57 @@ const styles = StyleSheet.create({
   saveButtonText: {
     color: "white",
     fontSize: 16,
+    fontWeight: "600",
+  },
+  clickableRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+  },
+  rowLabel: {
+    fontSize: 16,
+    color: "#2c3e50",
+    fontWeight: "500",
+  },
+  rowValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2c3e50",
+  },
+  activityLevelContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  arrow: {
+    fontSize: 16,
+    color: "#666",
+    marginLeft: 8,
+  },
+  genderContainer: {
+    flexDirection: "row",
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+    padding: 4,
+  },
+  genderOption: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: "center",
+  },
+  genderOptionActive: {
+    backgroundColor: "#2c3e50",
+  },
+  genderText: {
+    fontSize: 16,
+    color: "#666",
+  },
+  genderTextActive: {
+    color: "white",
     fontWeight: "600",
   },
 });
