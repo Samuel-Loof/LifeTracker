@@ -44,7 +44,7 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         const product = data.product;
         const nutriments = product.nutriments || {}; // Handle case where nutrition data is missing
         
-        return {
+        const foodData: FoodData = {
         barcode,
         name: product.product_name || 'Unknown Product',
         brand: product.brands || 'Unknown Brand',
@@ -62,6 +62,19 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         servingSize: product.serving_size || undefined,
         caloriesPerServing: nutriments.energy_kcal_serving || undefined,
     };
+
+    // Debug logging for micronutrients
+    console.log('Food data micronutrients:', {
+        fiber: foodData.fiber,
+        sugars: foodData.sugars,
+        saturatedFat: foodData.saturatedFat,
+        unsaturatedFat: foodData.unsaturatedFat,
+        cholesterol: foodData.cholesterol,
+        sodium: foodData.sodium,
+        potassium: foodData.potassium
+    });
+
+    return foodData;
 
     } catch (error) {
         // Handle network errors, parsing errors, etc.

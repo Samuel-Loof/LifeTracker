@@ -172,7 +172,20 @@ export default function AddFoodScreen() {
       `&protein=${encodeURIComponent(String(food.nutrition.protein))}` +
       `&carbs=${encodeURIComponent(String(food.nutrition.carbs))}` +
       `&fat=${encodeURIComponent(String(food.nutrition.fat))}` +
-      `&meal=${encodeURIComponent(String(mealType))}`;
+      `&meal=${encodeURIComponent(String(mealType))}` +
+      `&fiber=${encodeURIComponent(String(food.nutrition.fiber || 0))}` +
+      `&sugars=${encodeURIComponent(String(food.nutrition.sugars || 0))}` +
+      `&saturatedFat=${encodeURIComponent(
+        String(food.nutrition.saturatedFat || 0)
+      )}` +
+      `&unsaturatedFat=${encodeURIComponent(
+        String(food.nutrition.unsaturatedFat || 0)
+      )}` +
+      `&cholesterol=${encodeURIComponent(
+        String(food.nutrition.cholesterol || 0)
+      )}` +
+      `&sodium=${encodeURIComponent(String(food.nutrition.sodium || 0))}` +
+      `&potassium=${encodeURIComponent(String(food.nutrition.potassium || 0))}`;
 
     router.push(queryStr);
   };

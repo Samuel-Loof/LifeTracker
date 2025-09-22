@@ -78,6 +78,14 @@ export default function ScannerScreen() {
         targetMeal: mealParam || "breakfast",
         // Pass context about the navigation flow
         fromAddFood: "true",
+        // Pass micronutrients
+        fiber: (foodData.fiber || 0).toString(),
+        sugars: (foodData.sugars || 0).toString(),
+        saturatedFat: (foodData.saturatedFat || 0).toString(),
+        unsaturatedFat: (foodData.unsaturatedFat || 0).toString(),
+        cholesterol: (foodData.cholesterol || 0).toString(),
+        sodium: (foodData.sodium || 0).toString(),
+        potassium: (foodData.potassium || 0).toString(),
       },
     });
   };
