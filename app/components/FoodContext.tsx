@@ -20,6 +20,7 @@ export interface FoodItem {
     carbs: number;
     fat: number;
   };
+  proteinQuality?: number; // PDCAAS/DIAAS-style 0..1 estimate
   timestamp: Date;
   mealType: string;
 }

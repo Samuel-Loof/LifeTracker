@@ -152,6 +152,9 @@ export default function AddFoodScreen() {
         carbs: food.nutrition.carbs || 0,
         fat: food.nutrition.fat || 0,
       },
+      proteinQuality:
+        food.proteinQuality ??
+        lookupProteinQuality(`${food.name} ${food.brand}`),
       timestamp: new Date(),
       mealType: mealType,
     };
@@ -173,6 +176,19 @@ export default function AddFoodScreen() {
 
     router.push(queryStr);
   };
+
+  // Simple heuristic to estimate protein quality by name
+  function lookupProteinQuality(name: string): number {
+    const n = (name || "").toLowerCase();
+    if (/(egg|whey|casein|milk protein|beef|fish)/.test(n)) return 1.0;
+    if (/(soy isolate|soy protein isolate)/.test(n)) return 1.0;
+    if (/quinoa|pea protein|canola protein|potato protein/.test(n)) return 0.8;
+    if (/lentil|chickpea|bean|kidney bean|black bean|navy bean|pinto/.test(n))
+      return 0.65;
+    if (/oat|wheat|rice|barley|grain/.test(n)) return 0.5;
+    if (/almond|peanut|nut|seed/.test(n)) return 0.4;
+    return 0.7;
+  }
 
   return (
     <View style={styles.container}>

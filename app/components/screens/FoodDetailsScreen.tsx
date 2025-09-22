@@ -94,6 +94,9 @@ export default function FoodDetailsScreen() {
   };
 
   const onTrack = () => {
+    const proteinQuality = lookupProteinQuality(
+      `${params.name as string} ${params.brand as string}`
+    );
     const foodItem = {
       id: Date.now().toString(),
       name: params.name as string,
@@ -106,6 +109,7 @@ export default function FoodDetailsScreen() {
         carbs: parseFloat(currentNutrition.carbs),
         fat: parseFloat(currentNutrition.fat),
       },
+      proteinQuality,
       timestamp: new Date(),
       mealType: selectedMeal,
     };
@@ -113,6 +117,18 @@ export default function FoodDetailsScreen() {
     addFood(foodItem);
     router.push(`/components/screens/DailyIntakeScreen?meal=${selectedMeal}`);
   };
+
+  function lookupProteinQuality(name: string): number {
+    const n = (name || "").toLowerCase();
+    if (/(egg|whey|casein|milk protein|beef|fish)/.test(n)) return 1.0;
+    if (/(soy isolate|soy protein isolate)/.test(n)) return 1.0;
+    if (/quinoa|pea protein|canola protein|potato protein/.test(n)) return 0.8;
+    if (/lentil|chickpea|bean|kidney bean|black bean|navy bean|pinto/.test(n))
+      return 0.65;
+    if (/oat|wheat|rice|barley|grain/.test(n)) return 0.5;
+    if (/almond|peanut|nut|seed/.test(n)) return 0.4;
+    return 0.7;
+  }
 
   return (
     <View style={styles.container}>

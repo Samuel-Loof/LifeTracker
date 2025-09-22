@@ -28,15 +28,30 @@ export default function DailyIntakeScreen() {
   const totals = useMemo(() => {
     return mealFoods.reduce(
       (acc, f) => {
+        const p = Number(f.nutrition.protein) || 0;
+        const q =
+          typeof (f as any).proteinQuality === "number"
+            ? (f as any).proteinQuality
+            : lookupProteinQuality(f.name || "");
         acc.calories += Number(f.nutrition.calories) || 0;
-        acc.protein += Number(f.nutrition.protein) || 0;
+        acc.protein += p;
         acc.carbs += Number(f.nutrition.carbs) || 0;
         acc.fat += Number(f.nutrition.fat) || 0;
+        acc.qualityProteinWeighted += p * q;
+        acc.qualityProteinHigh +=
+          q >= (userGoals?.minAverageProteinQuality ?? 0.9) ? p : 0;
         return acc;
       },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        qualityProteinWeighted: 0,
+        qualityProteinHigh: 0,
+      }
     );
-  }, [mealFoods]);
+  }, [mealFoods, userGoals]);
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -208,9 +223,17 @@ export default function DailyIntakeScreen() {
           <SummaryRow
             label="Protein"
             value={`${totals.protein.toFixed(1)} g`}
-            subLabel={`Avg quality: ${computeAverageProteinQuality(
-              mealFoods
-            ).toFixed(2)}`}
+            subLabel={`Avg quality: ${
+              totals.protein > 0
+                ? (totals.qualityProteinWeighted / totals.protein).toFixed(2)
+                : "0.00"
+            }  ·  >= ${(userGoals?.minAverageProteinQuality ?? 0.9).toFixed(
+              2
+            )}: ${
+              totals.protein > 0
+                ? Math.round((totals.qualityProteinHigh / totals.protein) * 100)
+                : 0
+            }%`}
             barPercent={percent(totals.protein, goals.protein)}
             color="#8BC34A"
           />

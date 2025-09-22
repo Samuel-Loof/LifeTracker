@@ -24,7 +24,7 @@ type GoalPace = "slow" | "moderate" | "custom";
 
 export default function UserProfileScreen() {
   const router = useRouter();
-  const { userGoals, setUserGoals } = useFood();
+  const { userGoals, setUserGoals, habits, setHabits } = useFood();
 
   const [sex, setSex] = useState<Sex>("male");
   const [age, setAge] = useState<string>("30");
@@ -374,6 +374,73 @@ export default function UserProfileScreen() {
           <Text style={styles.helperText}>
             Track days free from substances and manage fasting.
           </Text>
+          <Row>
+            <Field label="Alcohol-free days">
+              <View style={styles.counterRow}>
+                <Text style={styles.counterValue}>
+                  {habits.daysAlcoholFree}
+                </Text>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() =>
+                    setHabits({ daysAlcoholFree: habits.daysAlcoholFree + 1 })
+                  }
+                >
+                  <Text style={styles.counterBtnText}>+1</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setHabits({ daysAlcoholFree: 0 })}
+                >
+                  <Text style={styles.counterBtnText}>Reset</Text>
+                </TouchableOpacity>
+              </View>
+            </Field>
+          </Row>
+          <Row>
+            <Field label="Nicotine-free days">
+              <View style={styles.counterRow}>
+                <Text style={styles.counterValue}>
+                  {habits.daysNicotineFree}
+                </Text>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() =>
+                    setHabits({ daysNicotineFree: habits.daysNicotineFree + 1 })
+                  }
+                >
+                  <Text style={styles.counterBtnText}>+1</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setHabits({ daysNicotineFree: 0 })}
+                >
+                  <Text style={styles.counterBtnText}>Reset</Text>
+                </TouchableOpacity>
+              </View>
+            </Field>
+          </Row>
+          <Row>
+            <Field label="Weed-free days">
+              <View style={styles.counterRow}>
+                <Text style={styles.counterValue}>{habits.daysWeedFree}</Text>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() =>
+                    setHabits({ daysWeedFree: habits.daysWeedFree + 1 })
+                  }
+                >
+                  <Text style={styles.counterBtnText}>+1</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.counterBtn}
+                  onPress={() => setHabits({ daysWeedFree: 0 })}
+                >
+                  <Text style={styles.counterBtnText}>Reset</Text>
+                </TouchableOpacity>
+              </View>
+            </Field>
+          </Row>
           <Link href="/components/screens/FastingScreen" asChild>
             <TouchableOpacity style={styles.saveButton}>
               <Text style={styles.saveButtonText}>Open Fasting Settings</Text>
@@ -579,4 +646,20 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   saveButtonText: { color: "white", fontSize: 16, fontWeight: "700" },
+  counterRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  counterValue: {
+    minWidth: 36,
+    textAlign: "center",
+    fontWeight: "700",
+    color: "#2c3e50",
+  },
+  counterBtn: {
+    backgroundColor: "#EFF7FD",
+    borderWidth: 1,
+    borderColor: "#3498db",
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  counterBtnText: { color: "#3498db", fontWeight: "700" },
 });
