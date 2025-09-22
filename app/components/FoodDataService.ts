@@ -6,6 +6,13 @@ export interface FoodData {
     protein: number;
     carbs: number;
     fat: number;
+    fiber?: number;
+    sugars?: number;
+    saturatedFat?: number;
+    unsaturatedFat?: number;
+    cholesterol?: number; // mg per 100g if available
+    sodium?: number; // mg per 100g
+    potassium?: number; // mg per 100g
     servingSize?: string; // "78 g", "1 cup", etc.
     caloriesPerServing?: number;
 }
@@ -45,6 +52,13 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         protein: nutriments.proteins_100g || 0,
         carbs: nutriments.carbohydrates_100g || 0,
         fat: nutriments.fat_100g || 0,
+        fiber: nutriments.fiber_100g || nutriments['fiber_100g'] || 0,
+        sugars: nutriments.sugars_100g || 0,
+        saturatedFat: nutriments['saturated-fat_100g'] || nutriments.saturated_fat_100g || 0,
+        unsaturatedFat: (nutriments.fat_100g || 0) - (nutriments['saturated-fat_100g'] || 0),
+        cholesterol: nutriments.cholesterol_100g || 0,
+        sodium: nutriments.sodium_100g ? Math.round(nutriments.sodium_100g * 1000) : 0, // g -> mg
+        potassium: nutriments.potassium_100g ? Math.round(nutriments.potassium_100g * 1000) : 0,
         servingSize: product.serving_size || undefined,
         caloriesPerServing: nutriments.energy_kcal_serving || undefined,
     };
@@ -94,6 +108,13 @@ export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
         protein: nutriments.proteins_100g || 0,
         carbs: nutriments.carbohydrates_100g || 0,
         fat: nutriments.fat_100g || 0,
+        fiber: nutriments.fiber_100g || 0,
+        sugars: nutriments.sugars_100g || 0,
+        saturatedFat: nutriments['saturated-fat_100g'] || nutriments.saturated_fat_100g || 0,
+        unsaturatedFat: (nutriments.fat_100g || 0) - (nutriments['saturated-fat_100g'] || 0),
+        cholesterol: nutriments.cholesterol_100g || 0,
+        sodium: nutriments.sodium_100g ? Math.round(nutriments.sodium_100g * 1000) : 0,
+        potassium: nutriments.potassium_100g ? Math.round(nutriments.potassium_100g * 1000) : 0,
         servingSize: product.serving_size || undefined,
         caloriesPerServing: nutriments.energy_kcal_serving || undefined,
         };

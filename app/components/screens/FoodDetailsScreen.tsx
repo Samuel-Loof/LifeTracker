@@ -10,6 +10,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import Svg, { Circle } from "react-native-svg";
 import { useFood } from "../FoodContext";
 
 const SERVING_UNITS = [
@@ -30,11 +31,13 @@ const MEAL_OPTIONS = [
 export default function FoodDetailsScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
-  const { addFood } = useFood();
+  const { addFood, updateFood } = useFood();
 
   // state variables
-  const [selectedUnit, setSelectedUnit] = useState("serving");
-  const [amount, setAmount] = useState("1");
+  const [selectedUnit, setSelectedUnit] = useState(
+    String(params.unit || "serving")
+  );
+  const [amount, setAmount] = useState(String(params.amount || "1"));
   const [showUnitPicker, setShowUnitPicker] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState(
     (params.meal as string) || "breakfast"
@@ -48,24 +51,39 @@ export default function FoodDetailsScreen() {
 
   // Calculate nutrition based on amount and unit
   const calculateNutrition = () => {
-    const baseCalories = parseFloat(params.calories as string) || 0;
-    const baseProtein = parseFloat(params.protein as string) || 0;
-    const baseCarbs = parseFloat(params.carbs as string) || 0;
-    const baseFat = parseFloat(params.fat as string) || 0;
+    const isEdit = (params.mode as string) === "edit";
+    const origUnit = String(params.unit || "serving");
+    const origAmount = parseFloat(String(params.amount || "1")) || 1;
+    const baseCalories = parseFloat(String(params.calories || "0")) || 0;
+    const baseProtein = parseFloat(String(params.protein || "0")) || 0;
+    const baseCarbs = parseFloat(String(params.carbs || "0")) || 0;
+    const baseFat = parseFloat(String(params.fat || "0")) || 0;
     const currentAmount = parseFloat(amount) || 1;
 
-    let conversionFactor = 1;
+    // If editing and unit unchanged, scale linearly by amount ratio (prevents double-scaling)
+    if (isEdit && selectedUnit === origUnit) {
+      const ratio = currentAmount / (origAmount || 1);
+      return {
+        calories: Math.round(baseCalories * ratio),
+        protein: (baseProtein * ratio).toFixed(1),
+        carbs: (baseCarbs * ratio).toFixed(1),
+        fat: (baseFat * ratio).toFixed(1),
+      };
+    }
 
+    // Fallback: convert based on unit assumptions
+    let conversionFactor = 1;
     switch (selectedUnit) {
       case "gram":
         conversionFactor = currentAmount / 100;
         break;
-      case "serving":
+      case "serving": {
         const servingSizeStr = String(params.servingSize || "100g");
         const numbers = servingSizeStr.match(/\d+/);
         const servingSizeGrams = numbers ? parseInt(numbers[0]) : 100;
         conversionFactor = (currentAmount * servingSizeGrams) / 100;
         break;
+      }
       case "tablespoon":
         conversionFactor = (currentAmount * 15) / 100;
         break;
@@ -85,20 +103,37 @@ export default function FoodDetailsScreen() {
   };
 
   const currentNutrition = calculateNutrition();
-
-  // Placeholder percent values (daily goals not implemented yet)
-  const macroPercents = {
-    protein: 0,
-    carbs: 0,
-    fat: 0,
+  const extraPer100 = {
+    fiber: parseFloat((params.fiber as string) || "0") || 0,
+    sugars: parseFloat((params.sugars as string) || "0") || 0,
+    saturatedFat: parseFloat((params.saturatedFat as string) || "0") || 0,
+    unsaturatedFat: parseFloat((params.unsaturatedFat as string) || "0") || 0,
+    cholesterol: parseFloat((params.cholesterol as string) || "0") || 0,
+    sodium: parseFloat((params.sodium as string) || "0") || 0,
+    potassium: parseFloat((params.potassium as string) || "0") || 0,
   };
+
+  // Macro distribution for this food (percentage of total calories)
+  const macroPercents = (() => {
+    const pCal = parseFloat(currentNutrition.protein) * 4;
+    const cCal = parseFloat(currentNutrition.carbs) * 4;
+    const fCal = parseFloat(currentNutrition.fat) * 9;
+    const total = pCal + cCal + fCal;
+    if (total <= 0) return { protein: 0, carbs: 0, fat: 0 };
+    return {
+      protein: Math.round((pCal / total) * 100),
+      carbs: Math.round((cCal / total) * 100),
+      fat: Math.round((fCal / total) * 100),
+    };
+  })();
 
   const onTrack = () => {
     const proteinQuality = lookupProteinQuality(
       `${params.name as string} ${params.brand as string}`
     );
+    const isEdit = (params.mode as string) === "edit" && params.id;
     const foodItem = {
-      id: Date.now().toString(),
+      id: isEdit ? String(params.id) : Date.now().toString(),
       name: params.name as string,
       brand: params.brand as string,
       amount: parseFloat(amount),
@@ -108,14 +143,73 @@ export default function FoodDetailsScreen() {
         protein: parseFloat(currentNutrition.protein),
         carbs: parseFloat(currentNutrition.carbs),
         fat: parseFloat(currentNutrition.fat),
+        fiber:
+          Number(
+            (
+              (extraPer100.fiber * (parseFloat(amount) || 1)) /
+              (selectedUnit === "gram" ? 100 : 1)
+            ).toFixed(1)
+          ) || undefined,
+        sugars:
+          Number(
+            (
+              (extraPer100.sugars * (parseFloat(amount) || 1)) /
+              (selectedUnit === "gram" ? 100 : 1)
+            ).toFixed(1)
+          ) || undefined,
+        saturatedFat:
+          Number(
+            (
+              (extraPer100.saturatedFat * (parseFloat(amount) || 1)) /
+              (selectedUnit === "gram" ? 100 : 1)
+            ).toFixed(1)
+          ) || undefined,
+        unsaturatedFat:
+          Number(
+            (
+              (extraPer100.unsaturatedFat * (parseFloat(amount) || 1)) /
+              (selectedUnit === "gram" ? 100 : 1)
+            ).toFixed(1)
+          ) || undefined,
+        cholesterol:
+          Math.round(
+            extraPer100.cholesterol *
+              (selectedUnit === "gram"
+                ? (parseFloat(amount) || 1) / 100
+                : parseFloat(amount) || 1)
+          ) || undefined,
+        sodium:
+          Math.round(
+            extraPer100.sodium *
+              (selectedUnit === "gram"
+                ? (parseFloat(amount) || 1) / 100
+                : parseFloat(amount) || 1)
+          ) || undefined,
+        potassium:
+          Math.round(
+            extraPer100.potassium *
+              (selectedUnit === "gram"
+                ? (parseFloat(amount) || 1) / 100
+                : parseFloat(amount) || 1)
+          ) || undefined,
       },
       proteinQuality,
       timestamp: new Date(),
       mealType: selectedMeal,
     };
 
-    addFood(foodItem);
-    router.push(`/components/screens/DailyIntakeScreen?meal=${selectedMeal}`);
+    if (isEdit) {
+      updateFood(foodItem as any);
+      router.replace(
+        `/components/screens/DailyIntakeScreen?meal=${selectedMeal}`
+      );
+    } else {
+      addFood(foodItem as any);
+      // Always go to Daily Intake, regardless of source
+      router.replace(
+        `/components/screens/DailyIntakeScreen?meal=${selectedMeal}`
+      );
+    }
   };
 
   function lookupProteinQuality(name: string): number {
@@ -189,7 +283,46 @@ export default function FoodDetailsScreen() {
           <Text style={styles.blockTitle}>This food</Text>
           <View style={styles.macroRow}>
             <View style={styles.macroItem}>
-              <View style={styles.circle}>
+              <View style={styles.circleSvgWrapper}>
+                <Svg width={72} height={72}>
+                  {(() => {
+                    const r = 28;
+                    const cx = 36;
+                    const cy = 36;
+                    const c = 2 * Math.PI * r;
+                    const pct = Math.max(
+                      0,
+                      Math.min(100, macroPercents.protein)
+                    );
+                    const offset = c * (1 - pct / 100);
+                    return (
+                      <>
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          stroke="#e6eef4"
+                          strokeWidth={8}
+                          fill="none"
+                        />
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          stroke="#E57373"
+                          strokeWidth={8}
+                          strokeDasharray={`${c} ${c}`}
+                          strokeDashoffset={offset}
+                          strokeLinecap="round"
+                          rotation={-90}
+                          originX={cx}
+                          originY={cy}
+                          fill="none"
+                        />
+                      </>
+                    );
+                  })()}
+                </Svg>
                 <Text
                   style={styles.circlePercent}
                 >{`${macroPercents.protein}%`}</Text>
@@ -200,7 +333,43 @@ export default function FoodDetailsScreen() {
               >{`${currentNutrition.protein} g`}</Text>
             </View>
             <View style={styles.macroItem}>
-              <View style={styles.circle}>
+              <View style={styles.circleSvgWrapper}>
+                <Svg width={72} height={72}>
+                  {(() => {
+                    const r = 28;
+                    const cx = 36;
+                    const cy = 36;
+                    const c = 2 * Math.PI * r;
+                    const pct = Math.max(0, Math.min(100, macroPercents.carbs));
+                    const offset = c * (1 - pct / 100);
+                    return (
+                      <>
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          stroke="#e6eef4"
+                          strokeWidth={8}
+                          fill="none"
+                        />
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          stroke="#FFB74D"
+                          strokeWidth={8}
+                          strokeDasharray={`${c} ${c}`}
+                          strokeDashoffset={offset}
+                          strokeLinecap="round"
+                          rotation={-90}
+                          originX={cx}
+                          originY={cy}
+                          fill="none"
+                        />
+                      </>
+                    );
+                  })()}
+                </Svg>
                 <Text
                   style={styles.circlePercent}
                 >{`${macroPercents.carbs}%`}</Text>
@@ -211,7 +380,43 @@ export default function FoodDetailsScreen() {
               >{`${currentNutrition.carbs} g`}</Text>
             </View>
             <View style={styles.macroItem}>
-              <View style={styles.circle}>
+              <View style={styles.circleSvgWrapper}>
+                <Svg width={72} height={72}>
+                  {(() => {
+                    const r = 28;
+                    const cx = 36;
+                    const cy = 36;
+                    const c = 2 * Math.PI * r;
+                    const pct = Math.max(0, Math.min(100, macroPercents.fat));
+                    const offset = c * (1 - pct / 100);
+                    return (
+                      <>
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          stroke="#e6eef4"
+                          strokeWidth={8}
+                          fill="none"
+                        />
+                        <Circle
+                          cx={cx}
+                          cy={cy}
+                          r={r}
+                          stroke="#9575CD"
+                          strokeWidth={8}
+                          strokeDasharray={`${c} ${c}`}
+                          strokeDashoffset={offset}
+                          strokeLinecap="round"
+                          rotation={-90}
+                          originX={cx}
+                          originY={cy}
+                          fill="none"
+                        />
+                      </>
+                    );
+                  })()}
+                </Svg>
                 <Text
                   style={styles.circlePercent}
                 >{`${macroPercents.fat}%`}</Text>
@@ -258,11 +463,29 @@ export default function FoodDetailsScreen() {
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Fiber</Text>
-              <Text style={styles.nutriValue}>—</Text>
+              <Text style={styles.nutriValue}>
+                {extraPer100.fiber
+                  ? (
+                      extraPer100.fiber *
+                      (selectedUnit === "gram"
+                        ? (parseFloat(amount) || 1) / 100
+                        : parseFloat(amount) || 1)
+                    ).toFixed(1) + " g"
+                  : "—"}
+              </Text>
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Sugars</Text>
-              <Text style={styles.nutriValue}>—</Text>
+              <Text style={styles.nutriValue}>
+                {extraPer100.sugars
+                  ? (
+                      extraPer100.sugars *
+                      (selectedUnit === "gram"
+                        ? (parseFloat(amount) || 1) / 100
+                        : parseFloat(amount) || 1)
+                    ).toFixed(1) + " g"
+                  : "—"}
+              </Text>
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Fat</Text>
@@ -270,23 +493,68 @@ export default function FoodDetailsScreen() {
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Saturated fat</Text>
-              <Text style={styles.nutriValue}>—</Text>
+              <Text style={styles.nutriValue}>
+                {extraPer100.saturatedFat
+                  ? (
+                      extraPer100.saturatedFat *
+                      (selectedUnit === "gram"
+                        ? (parseFloat(amount) || 1) / 100
+                        : parseFloat(amount) || 1)
+                    ).toFixed(1) + " g"
+                  : "—"}
+              </Text>
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Unsaturated fat</Text>
-              <Text style={styles.nutriValue}>—</Text>
+              <Text style={styles.nutriValue}>
+                {extraPer100.unsaturatedFat
+                  ? (
+                      extraPer100.unsaturatedFat *
+                      (selectedUnit === "gram"
+                        ? (parseFloat(amount) || 1) / 100
+                        : parseFloat(amount) || 1)
+                    ).toFixed(1) + " g"
+                  : "—"}
+              </Text>
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Cholesterol</Text>
-              <Text style={styles.nutriValue}>—</Text>
+              <Text style={styles.nutriValue}>
+                {extraPer100.cholesterol
+                  ? Math.round(
+                      extraPer100.cholesterol *
+                        (selectedUnit === "gram"
+                          ? (parseFloat(amount) || 1) / 100
+                          : parseFloat(amount) || 1)
+                    ) + " mg"
+                  : "—"}
+              </Text>
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Sodium</Text>
-              <Text style={styles.nutriValue}>—</Text>
+              <Text style={styles.nutriValue}>
+                {extraPer100.sodium
+                  ? Math.round(
+                      extraPer100.sodium *
+                        (selectedUnit === "gram"
+                          ? (parseFloat(amount) || 1) / 100
+                          : parseFloat(amount) || 1)
+                    ) + " mg"
+                  : "—"}
+              </Text>
             </View>
             <View style={styles.nutriRow}>
               <Text style={styles.nutriLabel}>Potassium</Text>
-              <Text style={styles.nutriValue}>—</Text>
+              <Text style={styles.nutriValue}>
+                {extraPer100.potassium
+                  ? Math.round(
+                      extraPer100.potassium *
+                        (selectedUnit === "gram"
+                          ? (parseFloat(amount) || 1) / 100
+                          : parseFloat(amount) || 1)
+                    ) + " mg"
+                  : "—"}
+              </Text>
             </View>
           </View>
         </View>
@@ -294,9 +562,11 @@ export default function FoodDetailsScreen() {
         {/* Spacer to avoid overlap with bottom button */}
         <View style={{ height: 12 }} />
 
-        {/* Track button */}
+        {/* Track/Save button */}
         <TouchableOpacity style={styles.trackButton} onPress={onTrack}>
-          <Text style={styles.trackButtonText}>TRACK</Text>
+          <Text style={styles.trackButtonText}>
+            {(params.mode as string) === "edit" ? "SAVE" : "TRACK"}
+          </Text>
         </TouchableOpacity>
 
         <View style={{ height: 16 }} />
@@ -478,15 +748,33 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    borderWidth: 8,
-    borderColor: "#e6eef4",
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
   },
+  circleSvgWrapper: {
+    width: 72,
+    height: 72,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 6,
+  },
+  circleFill: {
+    position: "absolute",
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    borderWidth: 8,
+    borderColor: "#8BC34A",
+    top: 0,
+    left: 0,
+    opacity: 0.5,
+  },
   circlePercent: {
+    position: "absolute",
+    textAlign: "center",
     fontSize: 14,
-    color: "#2c3e50",
+    color: "#c62828",
     fontWeight: "600",
   },
   macroLabel: {

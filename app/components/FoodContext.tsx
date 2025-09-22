@@ -19,6 +19,13 @@ export interface FoodItem {
     protein: number;
     carbs: number;
     fat: number;
+    fiber?: number;
+    sugars?: number;
+    saturatedFat?: number;
+    unsaturatedFat?: number;
+    cholesterol?: number; // mg
+    sodium?: number; // mg
+    potassium?: number; // mg
   };
   proteinQuality?: number; // PDCAAS/DIAAS-style 0..1 estimate
   timestamp: Date;
@@ -79,6 +86,7 @@ interface FoodContextType {
   dailyFoods: FoodItem[];
   addFood: (food: FoodItem) => void;
   removeFood: (foodId: string) => void;
+  updateFood: (food: FoodItem) => void;
 
   userGoals: UserGoals | null;
   setUserGoals: (goals: UserGoals) => Promise<void>;
@@ -136,6 +144,12 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
 
   const removeFood = async (foodId: string) => {
     const updated = dailyFoods.filter((food) => food.id !== foodId);
+    setDailyFoods(updated);
+    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+  };
+
+  const updateFood = async (food: FoodItem) => {
+    const updated = dailyFoods.map((f) => (f.id === food.id ? food : f));
     setDailyFoods(updated);
     await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
   };
@@ -209,6 +223,7 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         dailyFoods,
         addFood,
         removeFood,
+        updateFood,
         userGoals,
         setUserGoals,
         habits,

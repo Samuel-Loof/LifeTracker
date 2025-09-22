@@ -1,13 +1,14 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, Text, StyleSheet, Alert } from "react-native";
 import BarcodeScanner from "./components/BarcodeScanner";
 import { getFoodData, FoodData } from "./components/FoodDataService"; // Import our food service
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
 
 export default function ScannerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const mealParam = params.meal;
+  const [resetKey, setResetKey] = useState(0);
 
   //Function to handle when a barcode is scanned and process the food data
   const handleFoodScanned = async (barcode: string) => {
@@ -33,7 +34,8 @@ export default function ScannerScreen() {
               style: "cancel",
               onPress: () => {
                 console.log("User chose not to add manually");
-                // Stay on scanner, do nothing
+                // Reset scanner UI (no extra button lingering)
+                setResetKey((k) => k + 1);
               },
             },
             {
@@ -70,15 +72,25 @@ export default function ScannerScreen() {
         barcode: foodData.barcode,
         servingSize: foodData.servingSize || "100g",
         meal: mealParam || "breakfast",
+        // Pass a flag to indicate this came from scanner
+        fromScanner: "true",
       },
     });
   };
+
+  // Reset scanner when focusing (in case user navigated back)
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset scanner state when screen comes into focus
+      setResetKey((k) => k + 1);
+    }, [])
+  );
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Scan Food Barcode</Text>
       {/* Pass our food processing function to the BarcodeScanner */}
-      <BarcodeScanner onFoodScanned={handleFoodScanned} />
+      <BarcodeScanner onFoodScanned={handleFoodScanned} resetKey={resetKey} />
     </View>
   );
 }

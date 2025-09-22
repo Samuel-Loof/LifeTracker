@@ -6,10 +6,14 @@ import { useRouter } from "expo-router";
 // Interface to define what props this component accepts
 interface BarcodeScannerProps {
   onFoodScanned?: (barcode: string) => void; // Optional callback function
+  resetKey?: number; // changes trigger resuming scan
 }
 
 // Update component to accept props
-const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onFoodScanned }) => {
+const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
+  onFoodScanned,
+  resetKey,
+}) => {
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
   const router = useRouter();
@@ -19,6 +23,16 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onFoodScanned }) => {
       requestPermission();
     }
   }, [permission]);
+
+  useEffect(() => {
+    // Parent can bump resetKey to resume scanning
+    setScanned(false);
+  }, [resetKey]);
+
+  // Auto-resume scanning when component mounts or resets
+  useEffect(() => {
+    setScanned(false);
+  }, []);
 
   // Updated to use the callback function instead of just console.log
   const handleBarCodeScanned = ({
@@ -71,14 +85,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({ onFoodScanned }) => {
         </View>
         <View style={styles.unfocusedContainer}></View>
       </View>
-      {scanned && (
-        <TouchableOpacity
-          style={styles.scanAgainButton}
-          onPress={() => setScanned(false)}
-        >
-          <Text style={styles.scanAgainText}>Tap to Scan Again</Text>
-        </TouchableOpacity>
-      )}
+      {/* Removed scan again button - auto-resume scanning */}
     </View>
   );
 };

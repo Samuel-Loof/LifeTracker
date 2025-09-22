@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
+import Svg, { Circle } from "react-native-svg";
 import { useFood } from "./components/FoodContext";
 
 export default function HomeScreen() {
@@ -121,6 +122,56 @@ export default function HomeScreen() {
 
   const caloriesLeft = Math.abs((targetCalories || 0) - (totals.calories || 0));
   const over = (totals.calories || 0) > (targetCalories || 0);
+  const progress =
+    (targetCalories || 0) > 0
+      ? (totals.calories || 0) / (targetCalories || 0)
+      : 0;
+
+  function interpolateChannel(start: number, end: number, t: number) {
+    return Math.round(start + (end - start) * t);
+  }
+
+  function hexToRgb(hex: string) {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return { r, g, b };
+  }
+
+  function rgbToHex(r: number, g: number, b: number) {
+    const toHex = (v: number) => v.toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  function interpolateHex(startHex: string, endHex: string, t: number) {
+    const s = hexToRgb(startHex);
+    const e = hexToRgb(endHex);
+    return rgbToHex(
+      interpolateChannel(s.r, e.r, t),
+      interpolateChannel(s.g, e.g, t),
+      interpolateChannel(s.b, e.b, t)
+    );
+  }
+
+  function getCalorieBorderColor(p: number) {
+    // 0 -> green (#4CAF50), 0.5 -> orange (#FF9800), 1.0 -> red (#F44336)
+    if (p <= 0) return "#4CAF50";
+    if (p < 0.5) {
+      const t = p / 0.5; // 0..1
+      return interpolateHex("#4CAF50", "#FF9800", t);
+    }
+    if (p < 1.0) {
+      const t = (p - 0.5) / 0.5; // 0..1
+      return interpolateHex("#FF9800", "#F44336", t);
+    }
+    // Over target → deepen red towards #D32F2F as p grows beyond 1
+    const capped = Math.min(p, 1.5); // cap the effect
+    const t = Math.min((capped - 1) / 0.5, 1); // 0..1
+    return interpolateHex("#F44336", "#D32F2F", t);
+  }
+
+  const circleBorderColor = getCalorieBorderColor(progress);
 
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
@@ -128,6 +179,22 @@ export default function HomeScreen() {
     month: "long",
     day: "numeric",
   });
+
+  const mealCalories = useMemo(() => {
+    const sums: Record<string, number> = {
+      breakfast: 0,
+      lunch: 0,
+      dinner: 0,
+      snack: 0,
+    };
+    for (const f of dailyFoods) {
+      const key = String((f as any).mealType || "").toLowerCase();
+      if (sums.hasOwnProperty(key)) {
+        sums[key] += Number((f as any).nutrition?.calories) || 0;
+      }
+    }
+    return sums;
+  }, [dailyFoods]);
 
   const MealRow = ({ label, mealKey }: { label: string; mealKey: string }) => (
     <View style={styles.mealRow}>
@@ -139,7 +206,9 @@ export default function HomeScreen() {
         activeOpacity={0.8}
       >
         <Text style={styles.mealLabel}>{label}</Text>
-        <Text style={styles.mealCalories}>0 calories</Text>
+        <Text style={styles.mealCalories}>
+          {mealCalories[mealKey] || 0} calories
+        </Text>
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.plusButton}
@@ -168,9 +237,52 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Big calories circle */}
+        {/* Big calories circle (radial progress) */}
         <View style={styles.bigCircleWrapper}>
-          <View style={styles.bigCircle}>
+          <View
+            style={[styles.bigCircle, { borderWidth: 0, position: "relative" }]}
+          >
+            <Svg
+              width={220}
+              height={220}
+              style={{ position: "absolute", top: 0, left: 0 }}
+            >
+              {(() => {
+                const strokeWidth = 12;
+                const r = 110 - strokeWidth / 2 - 1;
+                const cx = 110;
+                const cy = 110;
+                const c = 2 * Math.PI * r;
+                const pct = Math.max(0, Math.min(1, progress));
+                const offset = c * (1 - pct);
+                return (
+                  <>
+                    <Circle
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      stroke="#e6eef4"
+                      strokeWidth={strokeWidth}
+                      fill="none"
+                    />
+                    <Circle
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      stroke={circleBorderColor}
+                      strokeWidth={strokeWidth}
+                      strokeDasharray={`${c} ${c}`}
+                      strokeDashoffset={offset}
+                      strokeLinecap="round"
+                      rotation={-90}
+                      originX={cx}
+                      originY={cy}
+                      fill="none"
+                    />
+                  </>
+                );
+              })()}
+            </Svg>
             <Text style={styles.bigCircleNumber}>{caloriesLeft}</Text>
             <Text style={styles.bigCircleSub}>
               {over ? "kcal over" : "kcal left"}
@@ -244,11 +356,13 @@ function MacroBar({
   color: string;
 }) {
   const percent = goal > 0 ? Math.min(current / goal, 1) : 0;
+  const currentInt = Math.round(current);
+  const goalInt = Math.round(goal);
   return (
     <View style={styles.macroBarRow}>
       <View style={styles.macroBarHeader}>
         <Text style={styles.macroBarLabel}>{label}</Text>
-        <Text style={styles.macroBarValue}>{`${current}/${goal}g`}</Text>
+        <Text style={styles.macroBarValue}>{`${currentInt}/${goalInt}g`}</Text>
       </View>
       <View style={styles.macroBarTrack}>
         <View
@@ -334,6 +448,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 8,
+  },
+  progressTrack: {
+    width: 220,
+    height: 8,
+    borderRadius: 6,
+    backgroundColor: "#f1f4f7",
+    overflow: "hidden",
+    marginTop: 10,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 6,
   },
   sideLabel: {
     color: "#7f8c8d",

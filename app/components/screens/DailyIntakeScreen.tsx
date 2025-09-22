@@ -7,6 +7,7 @@ import {
   ScrollView,
 } from "react-native";
 import { useLocalSearchParams, useRouter, Link } from "expo-router";
+import Svg, { Circle } from "react-native-svg";
 import { useFood } from "../FoodContext";
 
 export default function DailyIntakeScreen() {
@@ -127,12 +128,58 @@ export default function DailyIntakeScreen() {
   const percent = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
   const isPremium = true;
 
+  const progress = goals.calories > 0 ? totals.calories / goals.calories : 0;
+
+  function interpolateChannel(start: number, end: number, t: number) {
+    return Math.round(start + (end - start) * t);
+  }
+
+  function hexToRgb(hex: string) {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return { r, g, b };
+  }
+
+  function rgbToHex(r: number, g: number, b: number) {
+    const toHex = (v: number) => v.toString(16).padStart(2, "0");
+    return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+  }
+
+  function interpolateHex(startHex: string, endHex: string, t: number) {
+    const s = hexToRgb(startHex);
+    const e = hexToRgb(endHex);
+    return rgbToHex(
+      interpolateChannel(s.r, e.r, t),
+      interpolateChannel(s.g, e.g, t),
+      interpolateChannel(s.b, e.b, t)
+    );
+  }
+
+  function getCalorieBorderColor(p: number) {
+    if (p <= 0) return "#4CAF50";
+    if (p < 0.5) {
+      const t = p / 0.5;
+      return interpolateHex("#4CAF50", "#FF9800", t);
+    }
+    if (p < 1.0) {
+      const t = (p - 0.5) / 0.5;
+      return interpolateHex("#FF9800", "#F44336", t);
+    }
+    const capped = Math.min(p, 1.5);
+    const t = Math.min((capped - 1) / 0.5, 1);
+    return interpolateHex("#F44336", "#D32F2F", t);
+  }
+
+  const circleBorderColor = getCalorieBorderColor(progress);
+
   return (
     <View style={styles.container}>
       {/* Header with back X */}
       <View style={styles.header}>
         <TouchableOpacity
-          onPress={() => router.push("/")}
+          onPress={() => router.back()}
           style={styles.headerBack}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
@@ -143,22 +190,54 @@ export default function DailyIntakeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Big calories circle: show left/over */}
+        {/* Big calories circle: show meal calories only */}
         <View style={styles.bigCircleWrapper}>
-          <View style={styles.bigCircle}>
-            {(() => {
-              const diff = (goals.calories || 0) - (totals.calories || 0);
-              const isOver = diff < 0;
-              const abs = Math.abs(diff);
-              return (
-                <>
-                  <Text style={styles.bigCircleNumber}>{abs}</Text>
-                  <Text style={styles.bigCircleSub}>
-                    {isOver ? "kcal over" : "kcal left"}
-                  </Text>
-                </>
-              );
-            })()}
+          <View
+            style={[styles.bigCircle, { borderWidth: 0, position: "relative" }]}
+          >
+            <Svg
+              width={220}
+              height={220}
+              style={{ position: "absolute", top: 0, left: 0 }}
+            >
+              {(() => {
+                const strokeWidth = 12;
+                const r = 110 - strokeWidth / 2 - 1;
+                const cx = 110;
+                const cy = 110;
+                const c = 2 * Math.PI * r;
+                const pct = Math.max(0, Math.min(1, progress));
+                const offset = c * (1 - pct);
+                return (
+                  <>
+                    <Circle
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      stroke="#e6eef4"
+                      strokeWidth={strokeWidth}
+                      fill="none"
+                    />
+                    <Circle
+                      cx={cx}
+                      cy={cy}
+                      r={r}
+                      stroke={circleBorderColor}
+                      strokeWidth={strokeWidth}
+                      strokeDasharray={`${c} ${c}`}
+                      strokeDashoffset={offset}
+                      strokeLinecap="round"
+                      rotation={-90}
+                      originX={cx}
+                      originY={cy}
+                      fill="none"
+                    />
+                  </>
+                );
+              })()}
+            </Svg>
+            <Text style={styles.bigCircleNumber}>{totals.calories}</Text>
+            <Text style={styles.bigCircleSub}>kcal</Text>
           </View>
         </View>
 
@@ -181,7 +260,37 @@ export default function DailyIntakeScreen() {
                 activeOpacity={0.8}
                 onPress={() =>
                   router.push(
-                    `/components/screens/EditFoodScreen?id=${food.id}`
+                    `/components/screens/FoodDetailsScreen?mode=edit&id=${
+                      food.id
+                    }&name=${encodeURIComponent(
+                      food.name || ""
+                    )}&brand=${encodeURIComponent(
+                      food.brand || ""
+                    )}&meal=${encodeURIComponent(
+                      food.mealType || ""
+                    )}&unit=${encodeURIComponent(
+                      String((food as any).unit || "serving")
+                    )}&amount=${encodeURIComponent(
+                      String((food as any).amount || 1)
+                    )}&calories=${
+                      Number(food.nutrition.calories) || 0
+                    }&protein=${Number(food.nutrition.protein) || 0}&carbs=${
+                      Number(food.nutrition.carbs) || 0
+                    }&fat=${Number(food.nutrition.fat) || 0}&fiber=${
+                      Number((food as any).nutrition?.fiber) || 0
+                    }&sugars=${
+                      Number((food as any).nutrition?.sugars) || 0
+                    }&saturatedFat=${
+                      Number((food as any).nutrition?.saturatedFat) || 0
+                    }&unsaturatedFat=${
+                      Number((food as any).nutrition?.unsaturatedFat) || 0
+                    }&cholesterol=${
+                      Number((food as any).nutrition?.cholesterol) || 0
+                    }&sodium=${
+                      Number((food as any).nutrition?.sodium) || 0
+                    }&potassium=${
+                      Number((food as any).nutrition?.potassium) || 0
+                    }`
                   )
                 }
               >
@@ -222,7 +331,7 @@ export default function DailyIntakeScreen() {
           {/* Protein with quality */}
           <SummaryRow
             label="Protein"
-            value={`${totals.protein.toFixed(1)} g`}
+            value={`${Math.round(totals.protein)} g`}
             subLabel={`Avg quality: ${
               totals.protein > 0
                 ? (totals.qualityProteinWeighted / totals.protein).toFixed(2)
@@ -235,14 +344,20 @@ export default function DailyIntakeScreen() {
                 : 0
             }%`}
             barPercent={percent(totals.protein, goals.protein)}
-            color="#8BC34A"
+            color="#E57373"
           />
 
           {/* Carbs with fiber, sugars */}
           <SummaryRow
             label="Carbs"
-            value={`${totals.carbs.toFixed(1)} g`}
-            subLabel="Fiber —   Sugars —"
+            value={`${Math.round(totals.carbs)} g`}
+            subLabel={`Fiber ${mealFoods.reduce(
+              (a, f) => a + (Number((f as any).nutrition?.fiber) || 0),
+              0
+            )} g   ·   Sugars ${mealFoods.reduce(
+              (a, f) => a + (Number((f as any).nutrition?.sugars) || 0),
+              0
+            )} g`}
             barPercent={percent(totals.carbs, goals.carbs)}
             color="#FFC107"
           />
@@ -250,8 +365,14 @@ export default function DailyIntakeScreen() {
           {/* Fat with saturated / unsaturated */}
           <SummaryRow
             label="Fat"
-            value={`${totals.fat.toFixed(1)} g`}
-            subLabel="Saturated —   Unsaturated —"
+            value={`${Math.round(totals.fat)} g`}
+            subLabel={`Saturated ${mealFoods.reduce(
+              (a, f) => a + (Number((f as any).nutrition?.saturatedFat) || 0),
+              0
+            )} g   ·   Unsaturated ${mealFoods.reduce(
+              (a, f) => a + (Number((f as any).nutrition?.unsaturatedFat) || 0),
+              0
+            )} g`}
             barPercent={percent(totals.fat, goals.fat)}
             color="#9C27B0"
           />
@@ -261,14 +382,28 @@ export default function DailyIntakeScreen() {
           <Text style={styles.sectionLabel}>Other</Text>
           <SummaryRow
             label="Cholesterol"
-            value="—"
+            value={`${mealFoods.reduce(
+              (a, f) => a + (Number((f as any).nutrition?.cholesterol) || 0),
+              0
+            )} mg`}
             barPercent={0}
             color="#90A4AE"
           />
-          <SummaryRow label="Sodium" value="—" barPercent={0} color="#90A4AE" />
+          <SummaryRow
+            label="Sodium"
+            value={`${mealFoods.reduce(
+              (a, f) => a + (Number((f as any).nutrition?.sodium) || 0),
+              0
+            )} mg`}
+            barPercent={0}
+            color="#90A4AE"
+          />
           <SummaryRow
             label="Potassium"
-            value="—"
+            value={`${mealFoods.reduce(
+              (a, f) => a + (Number((f as any).nutrition?.potassium) || 0),
+              0
+            )} mg`}
             barPercent={0}
             color="#90A4AE"
           />
@@ -435,6 +570,18 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     alignItems: "center",
     marginBottom: 12,
+  },
+  progressTrack: {
+    width: 220,
+    height: 8,
+    borderRadius: 6,
+    backgroundColor: "#f1f4f7",
+    overflow: "hidden",
+    marginTop: 10,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 6,
   },
   emptyText: {
     color: "#7f8c8d",
