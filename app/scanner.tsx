@@ -74,6 +74,10 @@ export default function ScannerScreen() {
         meal: mealParam || "breakfast",
         // Pass a flag to indicate this came from scanner
         fromScanner: "true",
+        // Pass the meal param so we can navigate directly to Daily Intake after tracking
+        targetMeal: mealParam || "breakfast",
+        // Pass context about the navigation flow
+        fromAddFood: "true",
       },
     });
   };

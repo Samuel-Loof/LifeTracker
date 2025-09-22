@@ -200,15 +200,24 @@ export default function FoodDetailsScreen() {
 
     if (isEdit) {
       updateFood(foodItem as any);
-      router.replace(
-        `/components/screens/DailyIntakeScreen?meal=${selectedMeal}`
-      );
+      // When editing, just go back to the previous screen (which should be Daily Intake)
+      router.back();
     } else {
       addFood(foodItem as any);
-      // Always go to Daily Intake, regardless of source
-      router.replace(
-        `/components/screens/DailyIntakeScreen?meal=${selectedMeal}`
-      );
+      // If coming from scanner, dismiss all and go to Daily Intake to avoid scanner loop
+      if (params.fromScanner === "true") {
+        router.dismissAll();
+        router.navigate(
+          `/components/screens/DailyIntakeScreen?meal=${
+            params.targetMeal || selectedMeal
+          }`
+        );
+      } else {
+        // For manual add, just replace current screen
+        router.replace(
+          `/components/screens/DailyIntakeScreen?meal=${selectedMeal}`
+        );
+      }
     }
   };
 
@@ -560,17 +569,17 @@ export default function FoodDetailsScreen() {
         </View>
 
         {/* Spacer to avoid overlap with bottom button */}
-        <View style={{ height: 12 }} />
+        <View style={{ height: 80 }} />
+      </ScrollView>
 
-        {/* Track/Save button */}
+      {/* Fixed bottom button */}
+      <View style={styles.fixedButtonContainer}>
         <TouchableOpacity style={styles.trackButton} onPress={onTrack}>
           <Text style={styles.trackButtonText}>
             {(params.mode as string) === "edit" ? "SAVE" : "TRACK"}
           </Text>
         </TouchableOpacity>
-
-        <View style={{ height: 16 }} />
-      </ScrollView>
+      </View>
 
       {/* Unit picker modal */}
       <Modal visible={showUnitPicker} transparent={true} animationType="fade">
@@ -844,6 +853,17 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
+  },
+  fixedButtonContainer: {
+    position: "absolute",
+    bottom: 40, // Move up to avoid phone navigation buttons
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    paddingTop: 12,
+    paddingBottom: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
   },
   // Modal styles
   modalOverlay: {

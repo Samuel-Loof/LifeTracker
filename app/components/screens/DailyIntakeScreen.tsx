@@ -409,7 +409,12 @@ export default function DailyIntakeScreen() {
           />
         </View>
 
-        {/* CTA */}
+        {/* Spacer to avoid overlap with bottom button */}
+        <View style={{ height: 80 }} />
+      </ScrollView>
+
+      {/* Fixed bottom button */}
+      <View style={styles.fixedButtonContainer}>
         <Link
           href={`/components/screens/AddFoodScreen?meal=${mealType}`}
           asChild
@@ -418,9 +423,7 @@ export default function DailyIntakeScreen() {
             <Text style={styles.addButtonText}>Add More Food</Text>
           </TouchableOpacity>
         </Link>
-
-        <View style={{ height: 16 }} />
-      </ScrollView>
+      </View>
     </View>
   );
 }
@@ -702,5 +705,17 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "700",
+  },
+  fixedButtonContainer: {
+    position: "absolute",
+    bottom: 40, // Move up to avoid phone navigation buttons
+    left: 0,
+    right: 0,
+    backgroundColor: "white",
+    paddingTop: 12,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
   },
 });
