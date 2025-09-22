@@ -67,6 +67,9 @@ export interface UserGoals {
   // Protein quality targets
   minAverageProteinQuality?: number; // e.g., 0.9
   minHighQualityProteinPercent?: number; // e.g., 75 (% of protein grams from quality >= threshold)
+
+  // Units
+  useImperialUnits: boolean; // true for lbs/ft, false for kg/cm
 }
 
 export interface HabitsState {
@@ -104,6 +107,20 @@ const FoodContext = createContext<FoodContextType | undefined>(undefined);
 interface FoodProviderProps {
   children: ReactNode;
 }
+
+// Conversion functions
+export const convertKgToLbs = (kg: number): number => kg * 2.20462;
+export const convertLbsToKg = (lbs: number): number => lbs / 2.20462;
+export const convertCmToFtIn = (
+  cm: number
+): { feet: number; inches: number } => {
+  const totalInches = cm / 2.54;
+  const feet = Math.floor(totalInches / 12);
+  const inches = Math.round(totalInches % 12);
+  return { feet, inches };
+};
+export const convertFtInToCm = (feet: number, inches: number): number =>
+  (feet * 12 + inches) * 2.54;
 
 export const FoodProvider = ({ children }: FoodProviderProps) => {
   const [dailyFoods, setDailyFoods] = useState<FoodItem[]>([]);

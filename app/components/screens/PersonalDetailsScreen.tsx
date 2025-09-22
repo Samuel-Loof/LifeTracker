@@ -9,7 +9,13 @@ import {
   Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useFood } from "../FoodContext";
+import {
+  useFood,
+  convertKgToLbs,
+  convertLbsToKg,
+  convertCmToFtIn,
+  convertFtInToCm,
+} from "../FoodContext";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 type Sex = "male" | "female";
@@ -24,6 +30,12 @@ export default function PersonalDetailsScreen() {
   const [heightCm, setHeightCm] = useState<string>("175");
   const [weightKg, setWeightKg] = useState<string>("75");
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [useImperialUnits, setUseImperialUnits] = useState<boolean>(false);
+
+  // Imperial units state
+  const [heightFeet, setHeightFeet] = useState<string>("5");
+  const [heightInches, setHeightInches] = useState<string>("9");
+  const [weightLbs, setWeightLbs] = useState<string>("165");
 
   // Calculate age from date of birth
   const calculateAge = (birthDate: Date): number => {
@@ -44,20 +56,48 @@ export default function PersonalDetailsScreen() {
   // Load data from context
   useEffect(() => {
     if (userGoals) {
+      setFirstName(userGoals.firstName || "John");
       setSex(userGoals.sex);
       setHeightCm(userGoals.heightCm.toString());
       setWeightKg(userGoals.weightKg.toString());
+      setUseImperialUnits(userGoals.useImperialUnits || false);
+
+      // Convert to imperial units for display
+      const heightFtIn = convertCmToFtIn(userGoals.heightCm);
+      setHeightFeet(heightFtIn.feet.toString());
+      setHeightInches(heightFtIn.inches.toString());
+      setWeightLbs(convertKgToLbs(userGoals.weightKg).toFixed(0));
+
+      // Calculate date of birth from age
+      const today = new Date();
+      const birthYear = today.getFullYear() - userGoals.age;
+      setDateOfBirth(new Date(birthYear, today.getMonth(), today.getDate()));
     }
   }, [userGoals]);
 
   const handleSave = async () => {
     if (userGoals) {
+      // Convert values based on units
+      let finalHeightCm = Number(heightCm) || 0;
+      let finalWeightKg = Number(weightKg) || 0;
+
+      if (useImperialUnits) {
+        // Convert from imperial to metric
+        finalHeightCm = convertFtInToCm(
+          Number(heightFeet) || 0,
+          Number(heightInches) || 0
+        );
+        finalWeightKg = convertLbsToKg(Number(weightLbs) || 0);
+      }
+
       const updatedGoals = {
         ...userGoals,
+        firstName,
         sex,
         age,
-        heightCm: Number(heightCm) || 0,
-        weightKg: Number(weightKg) || 0,
+        heightCm: finalHeightCm,
+        weightKg: finalWeightKg,
+        useImperialUnits,
       };
       await setUserGoals(updatedGoals);
     }
@@ -100,31 +140,80 @@ export default function PersonalDetailsScreen() {
         {/* Current Weight */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Current Weight</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.textInput}
-              value={weightKg}
-              onChangeText={setWeightKg}
-              placeholder="75"
-              keyboardType="numeric"
+          {useImperialUnits ? (
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.textInput}
+                value={weightLbs}
+                onChangeText={setWeightLbs}
+                placeholder="165"
+                keyboardType="numeric"
+              />
+              <Text style={styles.unitLabel}>lbs</Text>
+            </View>
+          ) : (
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.textInput}
+                value={weightKg}
+                onChangeText={setWeightKg}
+                placeholder="75"
+                keyboardType="numeric"
+              />
+              <Text style={styles.unitLabel}>kg</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Units Toggle */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Units</Text>
+          <View style={styles.switchRow}>
+            <Text style={styles.switchLabel}>Metric (kg/cm)</Text>
+            <Switch
+              value={useImperialUnits}
+              onValueChange={setUseImperialUnits}
+              trackColor={{ false: "#767577", true: "#81b0ff" }}
+              thumbColor={useImperialUnits ? "#f5dd4b" : "#f4f3f4"}
             />
-            <Text style={styles.unitLabel}>kg</Text>
+            <Text style={styles.switchLabel}>Imperial (lbs/ft)</Text>
           </View>
         </View>
 
         {/* Height */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Height</Text>
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.textInput}
-              value={heightCm}
-              onChangeText={setHeightCm}
-              placeholder="175"
-              keyboardType="numeric"
-            />
-            <Text style={styles.unitLabel}>cm</Text>
-          </View>
+          {useImperialUnits ? (
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.textInput}
+                value={heightFeet}
+                onChangeText={setHeightFeet}
+                placeholder="5"
+                keyboardType="numeric"
+              />
+              <Text style={styles.unitLabel}>ft</Text>
+              <TextInput
+                style={styles.textInput}
+                value={heightInches}
+                onChangeText={setHeightInches}
+                placeholder="9"
+                keyboardType="numeric"
+              />
+              <Text style={styles.unitLabel}>in</Text>
+            </View>
+          ) : (
+            <View style={styles.inputRow}>
+              <TextInput
+                style={styles.textInput}
+                value={heightCm}
+                onChangeText={setHeightCm}
+                placeholder="175"
+                keyboardType="numeric"
+              />
+              <Text style={styles.unitLabel}>cm</Text>
+            </View>
+          )}
         </View>
 
         {/* Date of Birth */}
@@ -265,6 +354,15 @@ const styles = StyleSheet.create({
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
+  },
+  switchRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  switchLabel: {
+    fontSize: 16,
+    color: "#666",
   },
   unitLabel: {
     marginLeft: 12,
