@@ -168,7 +168,25 @@ export default function UserProfileScreen() {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Current Weight</Text>
-            <Text style={styles.infoValue}>{parsed.weight} kg</Text>
+            <Text style={styles.infoValue}>
+              {userGoals?.useImperialUnits
+                ? `${Math.round(parsed.weight * 2.20462)} lbs`
+                : `${Math.round(parsed.weight)} kg`}
+            </Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Height</Text>
+            <Text style={styles.infoValue}>
+              {userGoals?.useImperialUnits
+                ? (() => {
+                    const totalInches = Math.round(parsed.height / 2.54);
+                    const feet = Math.floor(totalInches / 12);
+                    const inches = totalInches % 12;
+                    return `${feet}ft ${inches}in`;
+                  })()
+                : `${Math.round(parsed.height)} cm`}
+            </Text>
           </View>
 
           <View style={styles.infoRow}>

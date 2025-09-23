@@ -7,6 +7,7 @@ import {
   ScrollView,
   PanResponder,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 import { useFood } from "./components/FoodContext";
@@ -17,11 +18,34 @@ export default function HomeScreen() {
 
   // Day navigation state
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Get foods for current date
   const foodsForDate = useMemo(() => {
     return getFoodsForDate(currentDate);
   }, [getFoodsForDate, currentDate]);
+
+  // Get foods for next/previous day for preview
+  const nextDay = useMemo(() => {
+    const next = new Date(currentDate);
+    next.setDate(next.getDate() + 1);
+    return next;
+  }, [currentDate]);
+
+  const prevDay = useMemo(() => {
+    const prev = new Date(currentDate);
+    prev.setDate(prev.getDate() - 1);
+    return prev;
+  }, [currentDate]);
+
+  const nextDayFoods = useMemo(() => {
+    return getFoodsForDate(nextDay);
+  }, [getFoodsForDate, nextDay]);
+
+  const prevDayFoods = useMemo(() => {
+    return getFoodsForDate(prevDay);
+  }, [getFoodsForDate, prevDay]);
 
   // Derive totals from foods for current date
   const totals = useMemo(() => {
@@ -41,31 +65,88 @@ export default function HomeScreen() {
   const goToPreviousDay = () => {
     const newDate = new Date(currentDate);
     newDate.setDate(newDate.getDate() - 1);
+    console.log("Changing to previous day:", newDate.toDateString());
     setCurrentDate(newDate);
   };
 
   const goToNextDay = () => {
     const newDate = new Date(currentDate);
     newDate.setDate(newDate.getDate() + 1);
+    console.log("Changing to next day:", newDate.toDateString());
     setCurrentDate(newDate);
   };
 
   const goToToday = () => {
+    console.log("Going to today");
     setCurrentDate(new Date());
   };
 
-  // Pan responder for swipe gestures
+  // Pan responder for velocity-based swipe gestures (like Snapchat/Tinder)
   const panResponder = PanResponder.create({
+    onStartShouldSetPanResponder: () => true, // Capture immediately for date navigation swipe
     onMoveShouldSetPanResponder: (evt, gestureState) => {
-      return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 100;
+      // Only respond to horizontal swipes, not vertical scrolling
+      return Math.abs(gestureState.dx) > 3 && Math.abs(gestureState.dy) < 100;
+    },
+    onPanResponderGrant: () => {
+      setIsDragging(true);
+      setDragOffset(0);
+    },
+    onPanResponderMove: (evt, gestureState) => {
+      // Limit drag offset to screen width
+      const maxOffset = 300;
+      const clampedOffset = Math.max(
+        -maxOffset,
+        Math.min(maxOffset, gestureState.dx)
+      );
+      setDragOffset(clampedOffset);
     },
     onPanResponderRelease: (evt, gestureState) => {
-      if (gestureState.dx > 50) {
+      setIsDragging(false);
+      setDragOffset(0);
+
+      // Velocity-based detection (like Snapchat/Tinder)
+      const velocity = gestureState.vx; // horizontal velocity
+      const distance = Math.abs(gestureState.dx);
+
+      console.log(
+        "Release - velocity:",
+        velocity.toFixed(2),
+        "distance:",
+        distance.toFixed(0)
+      );
+
+      // Check for quick swipe (high velocity) OR long swipe (high distance)
+      const isQuickSwipe = Math.abs(velocity) > 0.2; // Fast horizontal movement (more sensitive for date nav)
+      const isLongSwipe = distance > 15; // Long horizontal movement (more sensitive for date nav)
+
+      if ((isQuickSwipe || isLongSwipe) && gestureState.dx > 0) {
         // Swipe right - go to previous day
+        console.log(
+          "Going to previous day (velocity:",
+          velocity.toFixed(2),
+          "distance:",
+          distance.toFixed(0),
+          ")"
+        );
         goToPreviousDay();
-      } else if (gestureState.dx < -50) {
+      } else if ((isQuickSwipe || isLongSwipe) && gestureState.dx < 0) {
         // Swipe left - go to next day
+        console.log(
+          "Going to next day (velocity:",
+          velocity.toFixed(2),
+          "distance:",
+          distance.toFixed(0),
+          ")"
+        );
         goToNextDay();
+      } else {
+        console.log(
+          "Swipe not fast/long enough - velocity:",
+          velocity.toFixed(2),
+          "distance:",
+          distance.toFixed(0)
+        );
       }
     },
   });
@@ -248,6 +329,32 @@ export default function HomeScreen() {
 
   const circleBorderColor = getCalorieBorderColor(progress);
 
+  // Dynamic gradient colors based on calorie intake (like Lifesum)
+  const getGradientColors = (): [string, string, string] => {
+    if (!targetCalories) return ["#667eea", "#764ba2", "#f093fb"]; // Default beautiful gradient
+
+    const calorieRatio = totals.calories / targetCalories;
+
+    if (calorieRatio < 0.3) {
+      // Low calories - fresh green gradients
+      return ["#a8edea", "#fed6e3", "#d299c2"];
+    } else if (calorieRatio < 0.6) {
+      // Medium calories - warm yellow gradients
+      return ["#ffecd2", "#fcb69f", "#ff8a80"];
+    } else if (calorieRatio < 0.9) {
+      // Good calories - vibrant orange gradients
+      return ["#ff9a9e", "#fecfef", "#fecfef"];
+    } else if (calorieRatio < 1.1) {
+      // Target calories - success green gradients
+      return ["#a8edea", "#fed6e3", "#d299c2"];
+    } else {
+      // Over calories - warning red gradients
+      return ["#ff9a9e", "#fad0c4", "#ffd1ff"];
+    }
+  };
+
+  const gradientColors = getGradientColors();
+
   const today = new Date().toLocaleDateString(undefined, {
     weekday: "long",
     year: "numeric",
@@ -271,34 +378,55 @@ export default function HomeScreen() {
     return sums;
   }, [dailyFoods]);
 
-  const MealRow = ({ label, mealKey }: { label: string; mealKey: string }) => (
-    <View style={styles.mealRow}>
-      <TouchableOpacity
-        style={styles.mealInfo}
-        onPress={() =>
-          router.push(`/components/screens/DailyIntakeScreen?meal=${mealKey}`)
-        }
-        activeOpacity={0.8}
-      >
-        <Text style={styles.mealLabel}>{label}</Text>
-        <Text style={styles.mealCalories}>
-          {mealCalories[mealKey] || 0} calories
-        </Text>
-      </TouchableOpacity>
-      <TouchableOpacity
-        style={styles.plusButton}
-        onPress={() =>
-          router.push(`/components/screens/AddFoodScreen?meal=${mealKey}`)
-        }
-        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-      >
-        <Text style={styles.plusText}>+</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const MealRow = ({
+    label,
+    mealKey,
+    foods,
+    date,
+  }: {
+    label: string;
+    mealKey: string;
+    foods: any[];
+    date: Date;
+  }) => {
+    const mealFoods = foods.filter((f) => f.meal === mealKey);
+    const mealCalories = mealFoods.reduce(
+      (sum, f) => sum + (f.nutrition?.calories || 0),
+      0
+    );
+
+    return (
+      <View style={styles.mealRow}>
+        <TouchableOpacity
+          style={styles.mealInfo}
+          onPress={() =>
+            router.push(`/components/screens/DailyIntakeScreen?meal=${mealKey}`)
+          }
+          activeOpacity={0.8}
+        >
+          <Text style={styles.mealLabel}>{label}</Text>
+          <Text style={styles.mealCalories}>{mealCalories} calories</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.plusButton}
+          onPress={() =>
+            router.push(`/components/screens/AddFoodScreen?meal=${mealKey}`)
+          }
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.plusText}>+</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   return (
-    <View style={styles.container} {...panResponder.panHandlers}>
+    <LinearGradient
+      colors={gradientColors}
+      style={styles.container}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+    >
       {/* Header */}
       <View style={styles.header}>
         <View style={{ width: 28 }} />
@@ -311,7 +439,11 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      {/* Main content with gradient background */}
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
         {/* Big calories circle (radial progress) */}
         <View style={styles.bigCircleWrapper}>
           <View
@@ -371,7 +503,7 @@ export default function HomeScreen() {
         </View>
 
         {/* Day navigation */}
-        <View style={styles.dayNavigation}>
+        <View style={styles.dayNavigation} {...panResponder.panHandlers}>
           <TouchableOpacity onPress={goToPreviousDay} style={styles.navButton}>
             <Text style={styles.navButtonText}>‹</Text>
           </TouchableOpacity>
@@ -408,10 +540,30 @@ export default function HomeScreen() {
         </View>
 
         {/* Meals */}
-        <MealRow label="Breakfast" mealKey="breakfast" />
-        <MealRow label="Lunch" mealKey="lunch" />
-        <MealRow label="Dinner" mealKey="dinner" />
-        <MealRow label="Snack" mealKey="snack" />
+        <MealRow
+          label="Breakfast"
+          mealKey="breakfast"
+          foods={foodsForDate}
+          date={currentDate}
+        />
+        <MealRow
+          label="Lunch"
+          mealKey="lunch"
+          foods={foodsForDate}
+          date={currentDate}
+        />
+        <MealRow
+          label="Dinner"
+          mealKey="dinner"
+          foods={foodsForDate}
+          date={currentDate}
+        />
+        <MealRow
+          label="Snack"
+          mealKey="snack"
+          foods={foodsForDate}
+          date={currentDate}
+        />
 
         {/* Exercise row */}
         <View style={styles.mealRow}>
@@ -427,7 +579,7 @@ export default function HomeScreen() {
 
         <View style={{ height: 16 }} />
       </ScrollView>
-    </View>
+    </LinearGradient>
   );
 }
 

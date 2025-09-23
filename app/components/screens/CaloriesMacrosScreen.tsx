@@ -503,6 +503,14 @@ export default function CaloriesMacrosScreen() {
   const handleCalorieEdit = () => {
     setTempCalories(targetCalories.toString());
     setIsEditingCalories(true);
+
+    // Scroll to make the calorie input visible
+    setTimeout(() => {
+      scrollViewRef.current?.scrollTo({
+        y: 400, // Scroll down to show the calorie section
+        animated: true,
+      });
+    }, 100);
   };
 
   const handleCalorieSave = () => {
@@ -721,19 +729,29 @@ export default function CaloriesMacrosScreen() {
     const keyboardDidShowListener = Keyboard.addListener(
       "keyboardDidShow",
       () => {
-        // Scroll to bottom when keyboard opens
-        setTimeout(() => {
-          scrollViewRef.current?.scrollToEnd({
-            animated: true,
-          });
-        }, 100);
+        // Only scroll to bottom for macro inputs, not for calories
+        if (!isEditingCalories) {
+          setTimeout(() => {
+            scrollViewRef.current?.scrollToEnd({
+              animated: true,
+            });
+          }, 100);
+        } else {
+          // For calories editing, ensure the input is visible
+          setTimeout(() => {
+            scrollViewRef.current?.scrollTo({
+              y: 450, // Scroll a bit more to ensure input is visible above keyboard
+              animated: true,
+            });
+          }, 100);
+        }
       }
     );
 
     return () => {
       keyboardDidShowListener?.remove();
     };
-  }, []);
+  }, [isEditingCalories]);
 
   // Handle macro input focus
   const handleMacroFocus = () => {
@@ -797,11 +815,24 @@ export default function CaloriesMacrosScreen() {
           <View style={styles.statsRow}>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Weight</Text>
-              <Text style={styles.statValue}>{weightKg} kg</Text>
+              <Text style={styles.statValue}>
+                {userGoals?.useImperialUnits
+                  ? `${Math.round(weightKg * 2.20462)} lbs`
+                  : `${Math.round(weightKg)} kg`}
+              </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Height</Text>
-              <Text style={styles.statValue}>{heightCm} cm</Text>
+              <Text style={styles.statValue}>
+                {userGoals?.useImperialUnits
+                  ? (() => {
+                      const totalInches = Math.round(heightCm / 2.54);
+                      const feet = Math.floor(totalInches / 12);
+                      const inches = totalInches % 12;
+                      return `${feet}ft ${inches}in`;
+                    })()
+                  : `${Math.round(heightCm)} cm`}
+              </Text>
             </View>
             <View style={styles.statItem}>
               <Text style={styles.statLabel}>Age</Text>
@@ -809,7 +840,7 @@ export default function CaloriesMacrosScreen() {
             </View>
           </View>
           <Text style={styles.helperText}>
-            BMR: {bmr} kcal • TDEE: {tdee} kcal
+            BMR: {Math.round(bmr)} kcal • TDEE: {tdee} kcal
           </Text>
         </View>
 
