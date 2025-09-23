@@ -1,10 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  PanResponder,
 } from "react-native";
 import { Link, useRouter } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
@@ -12,11 +13,19 @@ import { useFood } from "./components/FoodContext";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { dailyFoods, userGoals } = useFood();
+  const { dailyFoods, userGoals, getFoodsForDate } = useFood();
 
-  // Derive totals from foods
+  // Day navigation state
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Get foods for current date
+  const foodsForDate = useMemo(() => {
+    return getFoodsForDate(currentDate);
+  }, [getFoodsForDate, currentDate]);
+
+  // Derive totals from foods for current date
   const totals = useMemo(() => {
-    return dailyFoods.reduce(
+    return foodsForDate.reduce(
       (acc, f) => {
         acc.calories += Number(f.nutrition.calories) || 0;
         acc.protein += Number(f.nutrition.protein) || 0;
@@ -26,7 +35,73 @@ export default function HomeScreen() {
       },
       { calories: 0, protein: 0, carbs: 0, fat: 0 }
     );
-  }, [dailyFoods]);
+  }, [foodsForDate]);
+
+  // Day navigation functions
+  const goToPreviousDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setCurrentDate(newDate);
+  };
+
+  const goToNextDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Pan responder for swipe gestures
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 100;
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      if (gestureState.dx > 50) {
+        // Swipe right - go to previous day
+        goToPreviousDay();
+      } else if (gestureState.dx < -50) {
+        // Swipe left - go to next day
+        goToNextDay();
+      }
+    },
+  });
+
+  // Format current date for display
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+
+    if (isToday) {
+      return "Today";
+    }
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isYesterday) {
+      return "Yesterday";
+    }
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+    if (isTomorrow) {
+      return "Tomorrow";
+    }
+
+    return date.toLocaleDateString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   // Compute target from userGoals
   const activityFactor: Record<string, number> = {
@@ -223,7 +298,7 @@ export default function HomeScreen() {
   );
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...panResponder.panHandlers}>
       {/* Header */}
       <View style={styles.header}>
         <View style={{ width: 28 }} />
@@ -295,6 +370,21 @@ export default function HomeScreen() {
           </View>
         </View>
 
+        {/* Day navigation */}
+        <View style={styles.dayNavigation}>
+          <TouchableOpacity onPress={goToPreviousDay} style={styles.navButton}>
+            <Text style={styles.navButtonText}>‹</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={goToToday} style={styles.dateContainer}>
+            <Text style={styles.dateText}>{formatDate(currentDate)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={goToNextDay} style={styles.navButton}>
+            <Text style={styles.navButtonText}>›</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Macro bars */}
         <View style={styles.card}>
           <MacroBar
@@ -316,9 +406,6 @@ export default function HomeScreen() {
             color="#9575CD"
           />
         </View>
-
-        {/* Date */}
-        <Text style={styles.dateText}>{today}</Text>
 
         {/* Meals */}
         <MealRow label="Breakfast" mealKey="breakfast" />
@@ -497,11 +584,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 6,
   },
-  dateText: {
-    color: "#7f8c8d",
-    textAlign: "center",
-    marginBottom: 12,
-  },
   mealRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -542,5 +624,38 @@ const styles = StyleSheet.create({
     color: "#3498db",
     fontWeight: "bold",
     lineHeight: 22,
+  },
+  dayNavigation: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  navButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f8f9fa",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  navButtonText: {
+    fontSize: 24,
+    color: "#495057",
+    fontWeight: "bold",
+  },
+  dateContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  dateText: {
+    color: "#2c3e50",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
   },
 });

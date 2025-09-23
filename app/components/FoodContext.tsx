@@ -91,6 +91,7 @@ interface FoodContextType {
   addFood: (food: FoodItem) => void;
   removeFood: (foodId: string) => void;
   updateFood: (food: FoodItem) => void;
+  getFoodsForDate: (date: Date) => FoodItem[];
 
   userGoals: UserGoals | null;
   setUserGoals: (goals: UserGoals) => Promise<void>;
@@ -172,6 +173,18 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
   };
 
+  const getFoodsForDate = (date: Date) => {
+    const targetDate = new Date(date);
+    targetDate.setHours(0, 0, 0, 0);
+    const nextDay = new Date(targetDate);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    return dailyFoods.filter((food) => {
+      const foodDate = new Date(food.timestamp);
+      return foodDate >= targetDate && foodDate < nextDay;
+    });
+  };
+
   const loadUserGoals = async () => {
     try {
       const stored = await AsyncStorage.getItem("userGoals");
@@ -242,6 +255,7 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         addFood,
         removeFood,
         updateFood,
+        getFoodsForDate,
         userGoals,
         setUserGoals,
         habits,

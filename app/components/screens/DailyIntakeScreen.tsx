@@ -1,10 +1,11 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  PanResponder,
 } from "react-native";
 import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
@@ -12,18 +13,53 @@ import { useFood } from "../FoodContext";
 
 export default function DailyIntakeScreen() {
   const router = useRouter();
-  const { dailyFoods, removeFood, userGoals } = useFood();
+  const { dailyFoods, removeFood, userGoals, getFoodsForDate } = useFood();
   const params = useLocalSearchParams();
   const mealType = (params.meal as string) || "all";
 
-  // filter the foods depending on mealtime
-  const mealFoods = useMemo(
-    () =>
-      mealType === "all"
-        ? dailyFoods
-        : dailyFoods.filter((food) => food.mealType === mealType),
-    [dailyFoods, mealType]
-  );
+  // Day navigation state
+  const [currentDate, setCurrentDate] = useState(new Date());
+
+  // Get foods for current date and filter by meal type
+  const mealFoods = useMemo(() => {
+    const foodsForDate = getFoodsForDate(currentDate);
+    return mealType === "all"
+      ? foodsForDate
+      : foodsForDate.filter((food) => food.mealType === mealType);
+  }, [getFoodsForDate, currentDate, mealType]);
+
+  // Day navigation functions
+  const goToPreviousDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() - 1);
+    setCurrentDate(newDate);
+  };
+
+  const goToNextDay = () => {
+    const newDate = new Date(currentDate);
+    newDate.setDate(newDate.getDate() + 1);
+    setCurrentDate(newDate);
+  };
+
+  const goToToday = () => {
+    setCurrentDate(new Date());
+  };
+
+  // Pan responder for swipe gestures
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: (evt, gestureState) => {
+      return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 100;
+    },
+    onPanResponderRelease: (evt, gestureState) => {
+      if (gestureState.dx > 50) {
+        // Swipe right - go to previous day
+        goToPreviousDay();
+      } else if (gestureState.dx < -50) {
+        // Swipe left - go to next day
+        goToNextDay();
+      }
+    },
+  });
 
   // totals
   const totals = useMemo(() => {
@@ -54,12 +90,38 @@ export default function DailyIntakeScreen() {
     );
   }, [mealFoods, userGoals]);
 
-  const today = new Date().toLocaleDateString(undefined, {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  // Format current date for display
+  const formatDate = (date: Date) => {
+    const today = new Date();
+    const isToday = date.toDateString() === today.toDateString();
+
+    if (isToday) {
+      return "Today";
+    }
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+
+    if (isYesterday) {
+      return "Yesterday";
+    }
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow = date.toDateString() === tomorrow.toDateString();
+
+    if (isTomorrow) {
+      return "Tomorrow";
+    }
+
+    return date.toLocaleDateString(undefined, {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+  };
 
   // Derive goals from userGoals
   const activityFactor: Record<string, number> = {
@@ -175,7 +237,7 @@ export default function DailyIntakeScreen() {
   const circleBorderColor = getCalorieBorderColor(progress);
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} {...panResponder.panHandlers}>
       {/* Header with back X */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -241,11 +303,25 @@ export default function DailyIntakeScreen() {
           </View>
         </View>
 
-        {/* Meal and date */}
-        <Text style={styles.mealTypeText}>
-          {mealType === "all" ? "All meals" : String(mealType).toUpperCase()}
-        </Text>
-        <Text style={styles.dateText}>{today}</Text>
+        {/* Day navigation */}
+        <View style={styles.dayNavigation}>
+          <TouchableOpacity onPress={goToPreviousDay} style={styles.navButton}>
+            <Text style={styles.navButtonText}>‹</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={goToToday} style={styles.dateContainer}>
+            <Text style={styles.mealTypeText}>
+              {mealType === "all"
+                ? "All meals"
+                : String(mealType).toUpperCase()}
+            </Text>
+            <Text style={styles.dateText}>{formatDate(currentDate)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={goToNextDay} style={styles.navButton}>
+            <Text style={styles.navButtonText}>›</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Foods list */}
         {mealFoods.length === 0 ? (
@@ -277,19 +353,17 @@ export default function DailyIntakeScreen() {
                     }&protein=${Number(food.nutrition.protein) || 0}&carbs=${
                       Number(food.nutrition.carbs) || 0
                     }&fat=${Number(food.nutrition.fat) || 0}&fiber=${
-                      Number((food as any).nutrition?.fiber) || 0
+                      Number(food.nutrition.fiber) || 0
                     }&sugars=${
-                      Number((food as any).nutrition?.sugars) || 0
+                      Number(food.nutrition.sugars) || 0
                     }&saturatedFat=${
-                      Number((food as any).nutrition?.saturatedFat) || 0
+                      Number(food.nutrition.saturatedFat) || 0
                     }&unsaturatedFat=${
-                      Number((food as any).nutrition?.unsaturatedFat) || 0
+                      Number(food.nutrition.unsaturatedFat) || 0
                     }&cholesterol=${
-                      Number((food as any).nutrition?.cholesterol) || 0
-                    }&sodium=${
-                      Number((food as any).nutrition?.sodium) || 0
-                    }&potassium=${
-                      Number((food as any).nutrition?.potassium) || 0
+                      Number(food.nutrition.cholesterol) || 0
+                    }&sodium=${Number(food.nutrition.sodium) || 0}&potassium=${
+                      Number(food.nutrition.potassium) || 0
                     }`
                   )
                 }
@@ -352,10 +426,10 @@ export default function DailyIntakeScreen() {
             label="Carbs"
             value={`${Math.round(totals.carbs)} g`}
             subLabel={`Fiber ${mealFoods.reduce(
-              (a, f) => a + (Number((f as any).nutrition?.fiber) || 0),
+              (a, f) => a + (Number(f.nutrition.fiber) || 0),
               0
             )} g   ·   Sugars ${mealFoods.reduce(
-              (a, f) => a + (Number((f as any).nutrition?.sugars) || 0),
+              (a, f) => a + (Number(f.nutrition.sugars) || 0),
               0
             )} g`}
             barPercent={percent(totals.carbs, goals.carbs)}
@@ -367,10 +441,10 @@ export default function DailyIntakeScreen() {
             label="Fat"
             value={`${Math.round(totals.fat)} g`}
             subLabel={`Saturated ${mealFoods.reduce(
-              (a, f) => a + (Number((f as any).nutrition?.saturatedFat) || 0),
+              (a, f) => a + (Number(f.nutrition.saturatedFat) || 0),
               0
             )} g   ·   Unsaturated ${mealFoods.reduce(
-              (a, f) => a + (Number((f as any).nutrition?.unsaturatedFat) || 0),
+              (a, f) => a + (Number(f.nutrition.unsaturatedFat) || 0),
               0
             )} g`}
             barPercent={percent(totals.fat, goals.fat)}
@@ -383,7 +457,7 @@ export default function DailyIntakeScreen() {
           <SummaryRow
             label="Cholesterol"
             value={`${mealFoods.reduce(
-              (a, f) => a + (Number((f as any).nutrition?.cholesterol) || 0),
+              (a, f) => a + (Number(f.nutrition.cholesterol) || 0),
               0
             )} mg`}
             barPercent={0}
@@ -392,7 +466,7 @@ export default function DailyIntakeScreen() {
           <SummaryRow
             label="Sodium"
             value={`${mealFoods.reduce(
-              (a, f) => a + (Number((f as any).nutrition?.sodium) || 0),
+              (a, f) => a + (Number(f.nutrition.sodium) || 0),
               0
             )} mg`}
             barPercent={0}
@@ -401,7 +475,7 @@ export default function DailyIntakeScreen() {
           <SummaryRow
             label="Potassium"
             value={`${mealFoods.reduce(
-              (a, f) => a + (Number((f as any).nutrition?.potassium) || 0),
+              (a, f) => a + (Number(f.nutrition.potassium) || 0),
               0
             )} mg`}
             barPercent={0}
@@ -564,6 +638,33 @@ const styles = StyleSheet.create({
     color: "#7f8c8d",
     textAlign: "center",
     marginBottom: 12,
+  },
+  dayNavigation: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  navButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f8f9fa",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  navButtonText: {
+    fontSize: 24,
+    color: "#495057",
+    fontWeight: "bold",
+  },
+  dateContainer: {
+    flex: 1,
+    alignItems: "center",
+    paddingHorizontal: 20,
   },
   cardEmpty: {
     backgroundColor: "#fff",
