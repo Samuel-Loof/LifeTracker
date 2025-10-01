@@ -10,7 +10,7 @@ import {
   TouchableWithoutFeedback,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Svg, { Circle } from "react-native-svg";
+import Svg, { Circle, Path } from "react-native-svg";
 import { useFood } from "../FoodContext";
 
 const SERVING_UNITS = [
@@ -31,7 +31,15 @@ const MEAL_OPTIONS = [
 export default function FoodDetailsScreen() {
   const params = useLocalSearchParams();
   const router = useRouter();
-  const { addFood, updateFood } = useFood();
+  const {
+    addFood,
+    updateFood,
+    toggleFavorite,
+    toggleFavoriteByBarcode,
+    dailyFoods,
+    findFoodByBarcode,
+    findFoodByNameAndBrand,
+  } = useFood();
 
   // state variables
   const [selectedUnit, setSelectedUnit] = useState(
@@ -43,10 +51,80 @@ export default function FoodDetailsScreen() {
     (params.meal as string) || "breakfast"
   );
   const [showMealPicker, setShowMealPicker] = useState(false);
+  const [isNewFoodFavorite, setIsNewFoodFavorite] = useState(false);
+
+  // Check if current food is a favorite
+  const currentFoodId = params.id as string;
+  const isEdit = (params.mode as string) === "edit";
+
+  // For existing foods (edit mode), check if it's favorited
+  // For new foods, check if any food with same barcode/name+brand is favorited
+  const isFavorite = (() => {
+    if (isEdit && currentFoodId) {
+      const foundFood = dailyFoods.find((food) => food.id === currentFoodId);
+
+      // If this specific food isn't favorited, check if any food with same barcode is favorited
+      if (!foundFood?.isFavorite && params.barcode) {
+        const favoritedFood = findFoodByBarcode(params.barcode as string);
+        if (favoritedFood?.isFavorite) {
+          return true;
+        }
+      }
+
+      return foundFood?.isFavorite || false;
+    }
+
+    // For new foods, check if any existing food with same barcode is favorited
+    if (params.barcode) {
+      const existingFood = findFoodByBarcode(params.barcode as string);
+      if (existingFood) {
+        return existingFood.isFavorite || false;
+      }
+    }
+
+    // Fallback: check by name and brand
+    const existingFood = findFoodByNameAndBrand(
+      params.name as string,
+      params.brand as string
+    );
+    if (existingFood) {
+      return existingFood.isFavorite || false;
+    }
+
+    // If no existing food found, use local state
+    return isNewFoodFavorite;
+  })();
 
   const handleUnitSelect = (unitValue: string) => {
     setSelectedUnit(unitValue);
     setShowUnitPicker(false);
+  };
+
+  const handleToggleFavorite = () => {
+    if (isEdit && currentFoodId) {
+      // For existing foods, if there's a barcode, toggle ALL foods with the same barcode
+      if (params.barcode) {
+        toggleFavoriteByBarcode(params.barcode as string);
+      } else {
+        // No barcode, just toggle the current food
+        toggleFavorite(currentFoodId);
+      }
+    } else {
+      // For new foods, check if any food with same barcode exists and toggle that
+      if (params.barcode) {
+        const existingFood = findFoodByBarcode(params.barcode as string);
+        if (existingFood) {
+          // Toggle the existing food's favorite status
+          toggleFavorite(existingFood.id);
+        } else {
+          // Toggle local state for new food
+          setIsNewFoodFavorite(!isNewFoodFavorite);
+        }
+      } else {
+        // Toggle local state for new food without barcode
+        setIsNewFoodFavorite(!isNewFoodFavorite);
+      }
+    }
   };
 
   // Calculate nutrition based on amount and unit
@@ -132,12 +210,24 @@ export default function FoodDetailsScreen() {
       `${params.name as string} ${params.brand as string}`
     );
     const isEdit = (params.mode as string) === "edit" && params.id;
+
+    console.log("=== ONTRACK DEBUG ===");
+    console.log("Creating food item with:", {
+      name: params.name,
+      brand: params.brand,
+      barcode: params.barcode,
+      isFavorite: isFavorite,
+      isEdit,
+      currentFoodId,
+    });
+
     const foodItem = {
       id: isEdit ? String(params.id) : Date.now().toString(),
       name: params.name as string,
       brand: params.brand as string,
       amount: parseFloat(amount),
       unit: selectedUnit,
+      barcode: (params.barcode as string) || undefined,
       nutrition: {
         calories: currentNutrition.calories,
         protein: parseFloat(currentNutrition.protein),
@@ -196,6 +286,7 @@ export default function FoodDetailsScreen() {
       proteinQuality,
       timestamp: new Date(),
       mealType: selectedMeal,
+      isFavorite: isFavorite,
     };
 
     if (isEdit) {
@@ -236,11 +327,26 @@ export default function FoodDetailsScreen() {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Title: name (brand) */}
-        <Text style={styles.title}>
-          {params.name}
-          {params.brand ? ` (${params.brand})` : ""}
-        </Text>
+        {/* Title: name (brand) with heart icon */}
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>
+            {params.name}
+            {params.brand ? ` (${params.brand})` : ""}
+          </Text>
+          <TouchableOpacity
+            style={styles.heartButton}
+            onPress={handleToggleFavorite}
+          >
+            <Svg width={24} height={24} viewBox="0 0 24 24">
+              <Path
+                d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+                fill={isFavorite ? "#E57373" : "none"}
+                stroke={isFavorite ? "#E57373" : "#ccc"}
+                strokeWidth={2}
+              />
+            </Svg>
+          </TouchableOpacity>
+        </View>
 
         {/* Amount + Serving row */}
         <View style={styles.cardRow}>
@@ -652,11 +758,25 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 24,
   },
+  titleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    marginBottom: 16,
     color: "#2c3e50",
+    flex: 1,
+    marginRight: 12,
+  },
+  heartButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#f8f9fa",
+    borderWidth: 1,
+    borderColor: "#e9ecef",
   },
   // Card-ish rows
   cardRow: {

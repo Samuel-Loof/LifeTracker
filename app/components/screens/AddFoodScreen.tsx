@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Alert,
 } from "react-native";
 import { useRouter, useLocalSearchParams, Link } from "expo-router";
 import { useFood, FoodItem } from "../FoodContext"; // To get recent foods
@@ -15,7 +16,7 @@ import { FoodData, searchFoodByName } from "../FoodDataService";
 export default function AddFoodScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { dailyFoods, addFood } = useFood();
+  const { dailyFoods, addFood, clearAllFavorites } = useFood();
   // Search and filters
   const [query, setQuery] = useState("");
   const [apiResults, setApiResults] = useState<FoodData[]>([]);
@@ -84,9 +85,21 @@ export default function AddFoodScreen() {
     return result;
   }, [recentFoodsRaw]);
 
-  // Favorites and added: placeholders for now
-  const favoriteFoods: FoodItem[] = [];
-  const addedFoods: FoodItem[] = [];
+  // Favorites and added: get from daily foods
+  const favoriteFoods: FoodItem[] = dailyFoods.filter(
+    (food) => food.isFavorite
+  );
+
+  // Get today's foods only
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const addedFoods: FoodItem[] = dailyFoods.filter((food) => {
+    const foodDate = new Date(food.timestamp);
+    return foodDate >= today && foodDate < tomorrow;
+  });
 
   // Convert API FoodData -> UI FoodItem (default 1 serving)
   const mapApiToFoodItem = (f: FoodData): FoodItem => ({
@@ -146,6 +159,7 @@ export default function AddFoodScreen() {
       brand: food.brand || "Unknown Brand",
       amount: food.amount || 1,
       unit: food.unit || "serving",
+      barcode: food.barcode,
       nutrition: {
         calories: food.nutrition.calories || 0,
         protein: food.nutrition.protein || 0,
@@ -173,6 +187,7 @@ export default function AddFoodScreen() {
       `&carbs=${encodeURIComponent(String(food.nutrition.carbs))}` +
       `&fat=${encodeURIComponent(String(food.nutrition.fat))}` +
       `&meal=${encodeURIComponent(String(mealType))}` +
+      `&barcode=${encodeURIComponent(String(food.barcode || ""))}` +
       `&fiber=${encodeURIComponent(String(food.nutrition.fiber || 0))}` +
       `&sugars=${encodeURIComponent(String(food.nutrition.sugars || 0))}` +
       `&saturatedFat=${encodeURIComponent(
@@ -394,6 +409,38 @@ export default function AddFoodScreen() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {/* Clear All Favorites Button - only show in favorites tab when there are favorites */}
+      {selectedTab === "favorites" && favoriteFoods.length > 0 && (
+        <View style={styles.clearFavoritesContainer}>
+          <TouchableOpacity
+            style={styles.clearFavoritesButton}
+            onPress={() => {
+              Alert.alert(
+                "Clear All Favorites",
+                `Are you sure you want to remove ${
+                  favoriteFoods.length
+                } favorite${favoriteFoods.length === 1 ? "" : "s"}?`,
+                [
+                  {
+                    text: "Cancel",
+                    style: "cancel",
+                  },
+                  {
+                    text: "Clear All",
+                    style: "destructive",
+                    onPress: () => {
+                      clearAllFavorites();
+                    },
+                  },
+                ]
+              );
+            }}
+          >
+            <Text style={styles.clearFavoritesText}>Clear All Favorites</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* List */}
       <View style={styles.recentSection}>
@@ -655,5 +702,22 @@ const styles = StyleSheet.create({
     color: "#3498db",
     fontWeight: "bold",
     lineHeight: 22,
+  },
+  clearFavoritesContainer: {
+    marginBottom: 12,
+    alignItems: "center",
+  },
+  clearFavoritesButton: {
+    backgroundColor: "#ff6b6b",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#ff5252",
+  },
+  clearFavoritesText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

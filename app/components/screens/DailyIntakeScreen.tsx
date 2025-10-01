@@ -364,7 +364,9 @@ export default function DailyIntakeScreen() {
                       Number(food.nutrition.cholesterol) || 0
                     }&sodium=${Number(food.nutrition.sodium) || 0}&potassium=${
                       Number(food.nutrition.potassium) || 0
-                    }`
+                    }&barcode=${encodeURIComponent(
+                      String((food as any).barcode || "")
+                    )}`
                   )
                 }
               >

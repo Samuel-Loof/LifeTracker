@@ -14,6 +14,7 @@ export interface FoodItem {
   brand: string;
   amount: number;
   unit: string;
+  barcode?: string;
   nutrition: {
     calories: number;
     protein: number;
@@ -30,6 +31,7 @@ export interface FoodItem {
   proteinQuality?: number; // PDCAAS/DIAAS-style 0..1 estimate
   timestamp: Date;
   mealType: string;
+  isFavorite?: boolean;
 }
 
 export type Sex = "male" | "female";
@@ -92,6 +94,12 @@ interface FoodContextType {
   removeFood: (foodId: string) => void;
   updateFood: (food: FoodItem) => void;
   getFoodsForDate: (date: Date) => FoodItem[];
+  toggleFavorite: (foodId: string) => void;
+  toggleFavoriteByBarcode: (barcode: string) => Promise<void>;
+  getFavorites: () => FoodItem[];
+  findFoodByBarcode: (barcode: string) => FoodItem | undefined;
+  findFoodByNameAndBrand: (name: string, brand: string) => FoodItem | undefined;
+  clearAllFavorites: () => Promise<void>;
 
   userGoals: UserGoals | null;
   setUserGoals: (goals: UserGoals) => Promise<void>;
@@ -156,6 +164,19 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const addFood = async (food: FoodItem) => {
+    // Allow adding the same food multiple times, but prevent duplicate favorites
+    // If this food is being added as a favorite, check if it's already favorited
+    if (food.isFavorite && food.barcode) {
+      const existingFavorite = dailyFoods.find(
+        (f) => f.barcode === food.barcode && f.isFavorite
+      );
+      if (existingFavorite) {
+        console.log("Food with barcode already favorited:", food.barcode);
+        // Remove the favorite flag from the new food since it's already favorited
+        food.isFavorite = false;
+      }
+    }
+
     const updated = [...dailyFoods, food];
     setDailyFoods(updated);
     await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
@@ -183,6 +204,63 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
       const foodDate = new Date(food.timestamp);
       return foodDate >= targetDate && foodDate < nextDay;
     });
+  };
+
+  const toggleFavorite = async (foodId: string) => {
+    const updated = dailyFoods.map((food) =>
+      food.id === foodId ? { ...food, isFavorite: !food.isFavorite } : food
+    );
+    setDailyFoods(updated);
+    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+  };
+
+  const toggleFavoriteByBarcode = async (barcode: string) => {
+    // Check if any food with this barcode is currently favorited
+    const favoritedFood = dailyFoods.find(
+      (food) => food.barcode === barcode && food.isFavorite
+    );
+
+    if (favoritedFood) {
+      // If there's a favorited food with this barcode, unfavorite ALL foods with this barcode
+      const updated = dailyFoods.map((food) =>
+        food.barcode === barcode ? { ...food, isFavorite: false } : food
+      );
+      setDailyFoods(updated);
+      await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+    } else {
+      // If no favorited food with this barcode, favorite the first one we find
+      const firstFood = dailyFoods.find((food) => food.barcode === barcode);
+      if (firstFood) {
+        const updated = dailyFoods.map((food) =>
+          food.id === firstFood.id ? { ...food, isFavorite: true } : food
+        );
+        setDailyFoods(updated);
+        await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+      }
+    }
+  };
+
+  const getFavorites = () => {
+    return dailyFoods.filter((food) => food.isFavorite);
+  };
+
+  const findFoodByBarcode = (barcode: string) => {
+    return dailyFoods.find((food) => food.barcode === barcode);
+  };
+
+  const findFoodByNameAndBrand = (name: string, brand: string) => {
+    return dailyFoods.find(
+      (food) => food.name === name && food.brand === brand
+    );
+  };
+
+  const clearAllFavorites = async () => {
+    const updated = dailyFoods.map((food) => ({
+      ...food,
+      isFavorite: false,
+    }));
+    setDailyFoods(updated);
+    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
   };
 
   const loadUserGoals = async () => {
@@ -256,6 +334,12 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         removeFood,
         updateFood,
         getFoodsForDate,
+        toggleFavorite,
+        toggleFavoriteByBarcode,
+        getFavorites,
+        findFoodByBarcode,
+        findFoodByNameAndBrand,
+        clearAllFavorites,
         userGoals,
         setUserGoals,
         habits,

@@ -389,7 +389,7 @@ export default function HomeScreen() {
     foods: any[];
     date: Date;
   }) => {
-    const mealFoods = foods.filter((f) => f.meal === mealKey);
+    const mealFoods = foods.filter((f) => f.mealType === mealKey);
     const mealCalories = mealFoods.reduce(
       (sum, f) => sum + (f.nutrition?.calories || 0),
       0
