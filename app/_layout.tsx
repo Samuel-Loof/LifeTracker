@@ -25,6 +25,10 @@ export default function RootLayout() {
           name="components/screens/FastingScreen"
           options={{ title: "Fasting" }}
         />
+        <Stack.Screen
+          name="components/screens/WaterSettingsScreen"
+          options={{ title: "Water Settings" }}
+        />
       </Stack>
     </FoodProvider>
   );

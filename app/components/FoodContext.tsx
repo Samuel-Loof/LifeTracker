@@ -52,6 +52,17 @@ export interface RecipeIngredient {
   potassium: number;
 }
 
+export interface WaterSettings {
+  dailyGoal: number; // in liters
+  containerType: "glass" | "bottle"; // glass = 0.25L, bottle = 0.5L
+}
+
+export interface WaterIntake {
+  id: string;
+  amount: number; // in liters
+  timestamp: Date;
+}
+
 export interface Recipe {
   id: string;
   name: string;
@@ -167,6 +178,14 @@ interface FoodContextType {
   setHabits: (update: Partial<HabitsState>) => Promise<void>;
   fasting: FastingSettings;
   setFasting: (update: Partial<FastingSettings>) => Promise<void>;
+
+  // Water tracking
+  waterSettings: WaterSettings;
+  waterIntakes: WaterIntake[];
+  updateWaterSettings: (settings: WaterSettings) => Promise<void>;
+  addWaterIntake: (amount: number) => void;
+  removeWaterIntake: (id: string) => void;
+  getTodayWaterIntake: () => number;
 }
 
 // Create context
@@ -207,6 +226,11 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     notifyAtEnd: false,
     notifyAtStart: false,
   });
+  const [waterSettings, setWaterSettingsState] = useState<WaterSettings>({
+    dailyGoal: 3.0, // 3L default
+    containerType: "glass", // 0.25L default
+  });
+  const [waterIntakes, setWaterIntakes] = useState<WaterIntake[]>([]);
 
   useEffect(() => {
     loadDailyFoods();
@@ -214,6 +238,8 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     loadUserGoals();
     loadHabits();
     loadFasting();
+    loadWaterSettings();
+    loadWaterIntakes();
   }, []);
 
   const loadDailyFoods = async () => {
@@ -435,6 +461,87 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     }
   };
 
+  // Water tracking functions
+  const loadWaterSettings = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("waterSettings");
+      if (stored) setWaterSettingsState(JSON.parse(stored));
+    } catch (error) {
+      console.error("Error loading water settings:", error);
+    }
+  };
+
+  const loadWaterIntakes = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("waterIntakes");
+      if (stored) {
+        const parsedIntakes = JSON.parse(stored);
+        // Convert timestamp strings back to Date objects
+        const intakesWithDates = parsedIntakes.map((intake: any) => ({
+          ...intake,
+          timestamp: new Date(intake.timestamp),
+        }));
+        setWaterIntakes(intakesWithDates);
+      }
+    } catch (error) {
+      console.error("Error loading water intakes:", error);
+    }
+  };
+
+  const updateWaterSettings = async (settings: WaterSettings) => {
+    setWaterSettingsState(settings);
+    try {
+      await AsyncStorage.setItem("waterSettings", JSON.stringify(settings));
+    } catch (error) {
+      console.error("Error saving water settings:", error);
+    }
+  };
+
+  const addWaterIntake = (amount: number) => {
+    const newIntake: WaterIntake = {
+      id: Date.now().toString(),
+      amount,
+      timestamp: new Date(),
+    };
+    setWaterIntakes((prev) => {
+      const updated = [...prev, newIntake];
+      // Save to AsyncStorage asynchronously
+      AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving water intakes:", error);
+        }
+      );
+      return updated;
+    });
+  };
+
+  const removeWaterIntake = (id: string) => {
+    setWaterIntakes((prev) => {
+      const updated = prev.filter((intake) => intake.id !== id);
+      // Save to AsyncStorage asynchronously
+      AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving water intakes:", error);
+        }
+      );
+      return updated;
+    });
+  };
+
+  const getTodayWaterIntake = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    return waterIntakes
+      .filter((intake) => {
+        const intakeDate = new Date(intake.timestamp);
+        return intakeDate >= today && intakeDate < tomorrow;
+      })
+      .reduce((total, intake) => total + intake.amount, 0);
+  };
+
   // Recipe management functions
   const addRecipe = async (recipe: Recipe) => {
     const updated = [...recipes, recipe];
@@ -513,6 +620,12 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         setHabits,
         fasting,
         setFasting,
+        waterSettings,
+        waterIntakes,
+        updateWaterSettings,
+        addWaterIntake,
+        removeWaterIntake,
+        getTodayWaterIntake,
       }}
     >
       {children}

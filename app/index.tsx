@@ -378,6 +378,117 @@ export default function HomeScreen() {
     return sums;
   }, [dailyFoods]);
 
+  const WaterTracker = () => {
+    const {
+      waterSettings,
+      addWaterIntake,
+      removeWaterIntake,
+      getTodayWaterIntake,
+      waterIntakes,
+    } = useFood();
+    const todayIntake = getTodayWaterIntake();
+    const containerAmount =
+      waterSettings.containerType === "glass" ? 0.25 : 0.5;
+    const maxContainers = Math.ceil(waterSettings.dailyGoal / containerAmount);
+    const filledContainers = Math.floor(todayIntake / containerAmount);
+
+    const handleContainerClick = (containerIndex: number) => {
+      const isFilled = containerIndex < filledContainers;
+      const isPartiallyFilled =
+        containerIndex === filledContainers &&
+        todayIntake % containerAmount > 0;
+
+      if (isFilled || isPartiallyFilled) {
+        // Remove water - find the most recent water intake and remove it
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todayIntakes = waterIntakes.filter((intake) => {
+          const intakeDate = new Date(intake.timestamp);
+          return intakeDate >= today && intakeDate < tomorrow;
+        });
+
+        if (todayIntakes.length > 0) {
+          const mostRecentIntake = todayIntakes[todayIntakes.length - 1];
+          removeWaterIntake(mostRecentIntake.id);
+        }
+      } else {
+        // Add water
+        addWaterIntake(containerAmount);
+      }
+    };
+
+    const handleSettingsClick = () => {
+      router.push("/components/screens/WaterSettingsScreen");
+    };
+
+    const renderContainers = () => {
+      const containers = [];
+      for (let i = 0; i < maxContainers; i++) {
+        const isFilled = i < filledContainers;
+        const isPartiallyFilled =
+          i === filledContainers && todayIntake % containerAmount > 0;
+        const partialFillHeight = isPartiallyFilled
+          ? ((todayIntake % containerAmount) / containerAmount) * 100
+          : 0;
+
+        containers.push(
+          <TouchableOpacity
+            key={i}
+            style={styles.containerWrapper}
+            onPress={() => handleContainerClick(i)}
+          >
+            <View style={styles.containerOutline}>
+              {isFilled && (
+                <View style={[styles.containerFill, { height: "100%" }]} />
+              )}
+              {isPartiallyFilled && (
+                <View
+                  style={[
+                    styles.containerFill,
+                    { height: `${partialFillHeight}%` },
+                  ]}
+                />
+              )}
+              <Text style={styles.containerIcon}>
+                {waterSettings.containerType === "glass" ? "🥛" : "🍼"}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        );
+      }
+      return containers;
+    };
+
+    return (
+      <View style={styles.waterCard}>
+        <View style={styles.waterHeader}>
+          <Text style={styles.waterTitle}>Water</Text>
+          <TouchableOpacity
+            onPress={handleSettingsClick}
+            style={styles.waterSettingsButton}
+          >
+            <Text style={styles.waterSettingsText}>⋮</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.waterContent}>
+          <View style={styles.waterContainer}>
+            <View style={styles.containersGrid}>{renderContainers()}</View>
+            <Text style={styles.waterAmount}>
+              {todayIntake.toFixed(1)}L / {waterSettings.dailyGoal}L
+            </Text>
+            <Text style={styles.waterSubtext}>
+              Tap containers to add/remove {containerAmount}L
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const MealRow = ({
     label,
     mealKey,
@@ -435,7 +546,7 @@ export default function HomeScreen() {
           onPress={() => router.push("/components/screens/UserProfileScreen")}
           style={styles.profileButton}
         >
-          <Text style={styles.profileIcon}>🙂</Text>
+          <Text style={styles.profileIcon}>👤</Text>
         </TouchableOpacity>
       </View>
 
@@ -538,6 +649,9 @@ export default function HomeScreen() {
             color="#9575CD"
           />
         </View>
+
+        {/* Water Tracker */}
+        <WaterTracker />
 
         {/* Meals */}
         <MealRow
@@ -710,6 +824,94 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#eee",
     marginBottom: 16,
+  },
+  waterCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: "#eee",
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  waterHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  waterTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+  },
+  waterSettingsButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  waterSettingsText: {
+    fontSize: 18,
+    color: "#666",
+    fontWeight: "bold",
+  },
+  waterContent: {
+    alignItems: "center",
+  },
+  waterContainer: {
+    alignItems: "center",
+  },
+  containersGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 8,
+    marginBottom: 16,
+  },
+  containerWrapper: {
+    alignItems: "center",
+    marginHorizontal: 4,
+    position: "relative",
+  },
+  containerOutline: {
+    width: 32,
+    height: 40,
+    position: "relative",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 4,
+    overflow: "hidden",
+  },
+  containerFill: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#2196F3",
+    borderRadius: 0,
+    opacity: 0.8,
+  },
+  containerIcon: {
+    fontSize: 24,
+    zIndex: 2,
+    position: "relative",
+  },
+  waterAmount: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 4,
+  },
+  waterSubtext: {
+    fontSize: 12,
+    color: "#666",
   },
   macroBarRow: {
     marginBottom: 10,
