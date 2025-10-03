@@ -251,18 +251,33 @@ export default function CreateRecipeScreen() {
         {ingredients.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Nutrition Summary</Text>
-            <View style={styles.nutritionContainer}>
-              <View style={styles.nutritionRow}>
-                <Text style={styles.nutritionLabel}>Total:</Text>
-                <Text style={styles.nutritionValue}>
-                  {Math.round(calculateTotalNutrition().calories)} cal
-                </Text>
-              </View>
-              <View style={styles.nutritionRow}>
-                <Text style={styles.nutritionLabel}>Per serving:</Text>
-                <Text style={styles.nutritionValue}>
-                  {calculateNutritionPerServing().calories} cal
-                </Text>
+            <View style={styles.nutritionCard}>
+              <Text style={styles.nutritionCardTitle}>Per serving</Text>
+              <View style={styles.nutritionGrid}>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().calories}
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Calories</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().protein}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Protein</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().carbs}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Carbs</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().fat}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Fat</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -272,6 +287,9 @@ export default function CreateRecipeScreen() {
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveRecipe}>
           <Text style={styles.saveButtonText}>Save Recipe</Text>
         </TouchableOpacity>
+
+        {/* Bottom spacer to avoid Android navigation overlap */}
+        <View style={styles.bottomSpacer} />
       </View>
     </ScrollView>
   );
@@ -287,16 +305,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: "#fff",
+    paddingTop: 15,
+    paddingBottom: 12,
+    backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#dee2e6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   title: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: "700",
+    color: "#2c3e50",
+    letterSpacing: 0.5,
   },
   content: {
     padding: 20,
@@ -429,27 +453,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  nutritionContainer: {
+  nutritionCard: {
     backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderRadius: 16,
+    padding: 24,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
-  nutritionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  nutritionLabel: {
-    fontSize: 14,
-    color: "#666",
-  },
-  nutritionValue: {
-    fontSize: 14,
+  nutritionCardTitle: {
+    fontSize: 16,
     fontWeight: "600",
     color: "#333",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  nutritionItem: {
+    alignItems: "center",
+  },
+  nutritionValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 4,
+  },
+  nutritionLabel: {
+    fontSize: 12,
+    color: "#666",
+    textTransform: "uppercase",
   },
   saveButton: {
     backgroundColor: "#4CAF50",
@@ -467,5 +504,8 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  bottomSpacer: {
+    height: 80, // Space to avoid Android navigation buttons
   },
 });

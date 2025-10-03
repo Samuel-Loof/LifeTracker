@@ -370,6 +370,9 @@ export default function RecipeDetailsScreen() {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Bottom spacer to avoid Android navigation overlap */}
+        <View style={styles.bottomSpacer} />
       </View>
     </ScrollView>
   );
@@ -385,11 +388,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "flex-end",
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 8,
-    backgroundColor: "#fff",
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#e0e0e0",
+    paddingTop: 15,
+    paddingBottom: 12,
+    backgroundColor: "#f8f9fa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#dee2e6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   headerActions: {
     flexDirection: "row",
@@ -594,5 +602,8 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginTop: 100,
+  },
+  bottomSpacer: {
+    height: 80, // Space to avoid Android navigation buttons
   },
 });

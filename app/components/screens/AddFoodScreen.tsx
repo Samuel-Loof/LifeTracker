@@ -539,15 +539,19 @@ export default function AddFoodScreen() {
               keyExtractor={(item) => item.id}
               contentContainerStyle={styles.listContent}
               renderItem={({ item }) => (
-                <View style={styles.foodItem}>
-                  <TouchableOpacity
-                    style={styles.foodInfo}
-                    onPress={() => {
-                      router.push(
-                        `/components/screens/RecipeDetailsScreen?id=${item.id}`
-                      );
-                    }}
-                  >
+                <TouchableOpacity
+                  style={styles.foodItem}
+                  onPress={() => {
+                    console.log(
+                      "Recipe item clicked, navigating to RecipeDetailsScreen for:",
+                      item.name
+                    );
+                    router.push(
+                      `/components/screens/RecipeDetailsScreen?id=${item.id}`
+                    );
+                  }}
+                >
+                  <View style={styles.foodInfo}>
                     <View style={styles.foodNameRow}>
                       <Text style={styles.foodName}>{item.name}</Text>
                       <Text style={styles.foodBrand}>
@@ -558,20 +562,8 @@ export default function AddFoodScreen() {
                       {Math.round(item.nutritionPerServing.calories)} cal per
                       serving
                     </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.editButtonContainer}
-                    onPress={() => {
-                      // Navigate to EditRecipeScreen
-                      router.push(
-                        `/components/screens/EditRecipeScreen?editId=${item.id}`
-                      );
-                    }}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                  >
-                    <Text style={styles.editButton}>✏️</Text>
-                  </TouchableOpacity>
-                </View>
+                  </View>
+                </TouchableOpacity>
               )}
             />
           )
@@ -641,8 +633,8 @@ export default function AddFoodScreen() {
                   style={styles.modalOption}
                   onPress={() => {
                     setShowOptionsModal(false);
-                    // Switch to recipes tab to show edit buttons
-                    setSelectedTab("recipes");
+                    // Navigate to RecipeSelectionScreen
+                    router.push("/components/screens/RecipeSelectionScreen");
                   }}
                 >
                   <Text style={styles.modalOptionIcon}>✏️</Text>
@@ -924,23 +916,6 @@ const styles = StyleSheet.create({
     color: "#3498db",
     fontWeight: "bold",
     lineHeight: 22,
-  },
-  editButtonContainer: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ff9800",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFF3E0",
-    marginLeft: 8,
-  },
-  editButton: {
-    fontSize: 16,
-    color: "#ff9800",
-    fontWeight: "bold",
-    lineHeight: 16,
   },
   clearFavoritesContainer: {
     marginBottom: 12,

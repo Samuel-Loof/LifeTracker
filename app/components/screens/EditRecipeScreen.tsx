@@ -13,12 +13,16 @@ import { useFood, Recipe, RecipeIngredient } from "../FoodContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function EditRecipeScreen() {
-  const { recipes, updateRecipe } = useFood();
+  const { recipes, updateRecipe, removeRecipe } = useFood();
   const params = useLocalSearchParams();
   const recipeId = params.editId as string;
 
+  console.log("EditRecipeScreen loaded with recipeId:", recipeId);
+
   // Find the recipe to edit
   const originalRecipe = recipes.find((r) => r.id === recipeId);
+
+  console.log("Found recipe:", originalRecipe?.name);
 
   const [recipeName, setRecipeName] = useState(originalRecipe?.name || "");
   const [servings, setServings] = useState(originalRecipe?.servings || 1);
@@ -78,7 +82,21 @@ export default function EditRecipeScreen() {
   if (!originalRecipe) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Recipe not found</Text>
+        <View style={styles.header}>
+          <View style={{ width: 60 }} />
+          <Text style={styles.title}>Edit Recipe</Text>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={styles.deleteButton}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.deleteButtonText}>×</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.content}>
+          <Text style={styles.errorText}>Recipe not found</Text>
+          <Text style={styles.errorSubtext}>Recipe ID: {recipeId}</Text>
+        </View>
       </View>
     );
   }
@@ -135,6 +153,8 @@ export default function EditRecipeScreen() {
   };
 
   const handleSaveRecipe = async () => {
+    console.log("Save recipe clicked");
+
     if (!recipeName.trim()) {
       Alert.alert("Error", "Please enter a recipe name");
       return;
@@ -158,6 +178,8 @@ export default function EditRecipeScreen() {
       totalNutrition: calculateTotalNutrition(),
       nutritionPerServing: calculateNutritionPerServing(),
     };
+
+    console.log("Updating recipe:", updatedRecipe.name);
 
     // Update recipe in context/storage
     await updateRecipe(updatedRecipe);
@@ -183,12 +205,39 @@ export default function EditRecipeScreen() {
     setIngredients(ingredients.filter((ing) => ing.id !== ingredientId));
   };
 
+  const handleDeleteRecipe = () => {
+    Alert.alert(
+      "Delete Recipe",
+      `Are you sure you want to delete "${originalRecipe?.name}"?`,
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            removeRecipe(recipeId);
+            router.back();
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <View style={{ width: 60 }} />
         <Text style={styles.title}>Edit Recipe</Text>
-        <View style={{ width: 60 }} />
+        <TouchableOpacity
+          onPress={handleDeleteRecipe}
+          style={styles.deleteButton}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.deleteButtonText}>🗑️</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content}>
@@ -274,18 +323,33 @@ export default function EditRecipeScreen() {
         {ingredients.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Nutrition Summary</Text>
-            <View style={styles.nutritionContainer}>
-              <View style={styles.nutritionRow}>
-                <Text style={styles.nutritionLabel}>Total:</Text>
-                <Text style={styles.nutritionValue}>
-                  {Math.round(calculateTotalNutrition().calories)} cal
-                </Text>
-              </View>
-              <View style={styles.nutritionRow}>
-                <Text style={styles.nutritionLabel}>Per serving:</Text>
-                <Text style={styles.nutritionValue}>
-                  {calculateNutritionPerServing().calories} cal
-                </Text>
+            <View style={styles.nutritionCard}>
+              <Text style={styles.nutritionCardTitle}>Per serving</Text>
+              <View style={styles.nutritionGrid}>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().calories}
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Calories</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().protein}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Protein</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().carbs}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Carbs</Text>
+                </View>
+                <View style={styles.nutritionItem}>
+                  <Text style={styles.nutritionValue}>
+                    {calculateNutritionPerServing().fat}g
+                  </Text>
+                  <Text style={styles.nutritionLabel}>Fat</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -295,6 +359,9 @@ export default function EditRecipeScreen() {
         <TouchableOpacity style={styles.saveButton} onPress={handleSaveRecipe}>
           <Text style={styles.saveButtonText}>Save Changes</Text>
         </TouchableOpacity>
+
+        {/* Bottom spacer to avoid Android navigation overlap */}
+        <View style={styles.bottomSpacer} />
       </View>
     </ScrollView>
   );
@@ -310,16 +377,36 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 20,
-    backgroundColor: "#fff",
+    paddingTop: 15,
+    paddingBottom: 12,
+    backgroundColor: "#f8f9fa",
     borderBottomWidth: 1,
-    borderBottomColor: "#e0e0e0",
+    borderBottomColor: "#dee2e6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  deleteButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+  },
+  deleteButtonText: {
+    fontSize: 18,
+    color: "#ff4444",
   },
   title: {
     fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
+    fontWeight: "700",
+    color: "#2c3e50",
+    letterSpacing: 0.5,
   },
   content: {
     padding: 20,
@@ -452,27 +539,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  nutritionContainer: {
+  nutritionCard: {
     backgroundColor: "#fff",
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: "#e0e0e0",
+    borderRadius: 16,
+    padding: 24,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
   },
-  nutritionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  nutritionLabel: {
-    fontSize: 14,
-    color: "#666",
-  },
-  nutritionValue: {
-    fontSize: 14,
+  nutritionCardTitle: {
+    fontSize: 16,
     fontWeight: "600",
     color: "#333",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  nutritionItem: {
+    alignItems: "center",
+  },
+  nutritionValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#333",
+    marginBottom: 4,
+  },
+  nutritionLabel: {
+    fontSize: 12,
+    color: "#666",
+    textTransform: "uppercase",
   },
   saveButton: {
     backgroundColor: "#4CAF50",
@@ -496,5 +596,14 @@ const styles = StyleSheet.create({
     color: "#666",
     textAlign: "center",
     marginTop: 100,
+  },
+  errorSubtext: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+    marginTop: 8,
+  },
+  bottomSpacer: {
+    height: 80, // Space to avoid Android navigation buttons
   },
 });

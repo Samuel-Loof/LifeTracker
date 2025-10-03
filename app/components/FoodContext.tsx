@@ -457,10 +457,13 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const updateRecipe = async (recipe: Recipe) => {
+    console.log("updateRecipe called with:", recipe.name, "ID:", recipe.id);
     const updated = recipes.map((r) => (r.id === recipe.id ? recipe : r));
+    console.log("Updated recipes count:", updated.length);
     setRecipes(updated);
     try {
       await AsyncStorage.setItem("recipes", JSON.stringify(updated));
+      console.log("Recipe saved to AsyncStorage successfully");
     } catch (error) {
       console.error("Error saving recipes:", error);
     }
