@@ -34,6 +34,59 @@ export interface FoodItem {
   isFavorite?: boolean;
 }
 
+export interface RecipeIngredient {
+  id: string;
+  name: string;
+  amount: number;
+  unit: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  fiber: number;
+  sugars: number;
+  saturatedFat: number;
+  unsaturatedFat: number;
+  cholesterol: number;
+  sodium: number;
+  potassium: number;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  ingredients: RecipeIngredient[];
+  servings: number;
+  totalNutrition: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+    sugars: number;
+    saturatedFat: number;
+    unsaturatedFat: number;
+    cholesterol: number;
+    sodium: number;
+    potassium: number;
+  };
+  nutritionPerServing: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber: number;
+    sugars: number;
+    saturatedFat: number;
+    unsaturatedFat: number;
+    cholesterol: number;
+    sodium: number;
+    potassium: number;
+  };
+  isFavorite: boolean;
+  createdAt: Date;
+}
+
 export type Sex = "male" | "female";
 export type ActivityLevel =
   | "sedentary"
@@ -101,6 +154,13 @@ interface FoodContextType {
   findFoodByNameAndBrand: (name: string, brand: string) => FoodItem | undefined;
   clearAllFavorites: () => Promise<void>;
 
+  recipes: Recipe[];
+  addRecipe: (recipe: Recipe) => Promise<void>;
+  removeRecipe: (recipeId: string) => Promise<void>;
+  updateRecipe: (recipe: Recipe) => Promise<void>;
+  toggleRecipeFavorite: (recipeId: string) => Promise<void>;
+  getFavoriteRecipes: () => Recipe[];
+
   userGoals: UserGoals | null;
   setUserGoals: (goals: UserGoals) => Promise<void>;
   habits: HabitsState;
@@ -133,6 +193,7 @@ export const convertFtInToCm = (feet: number, inches: number): number =>
 
 export const FoodProvider = ({ children }: FoodProviderProps) => {
   const [dailyFoods, setDailyFoods] = useState<FoodItem[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [userGoals, setUserGoalsState] = useState<UserGoals | null>(null);
   const [habits, setHabitsState] = useState<HabitsState>({
     daysAlcoholFree: 0,
@@ -149,6 +210,7 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
 
   useEffect(() => {
     loadDailyFoods();
+    loadRecipes();
     loadUserGoals();
     loadHabits();
     loadFasting();
@@ -163,35 +225,75 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     }
   };
 
-  const addFood = async (food: FoodItem) => {
-    // Allow adding the same food multiple times, but prevent duplicate favorites
-    // If this food is being added as a favorite, check if it's already favorited
-    if (food.isFavorite && food.barcode) {
-      const existingFavorite = dailyFoods.find(
-        (f) => f.barcode === food.barcode && f.isFavorite
-      );
-      if (existingFavorite) {
-        console.log("Food with barcode already favorited:", food.barcode);
-        // Remove the favorite flag from the new food since it's already favorited
-        food.isFavorite = false;
+  const loadRecipes = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("recipes");
+      if (stored) {
+        const parsedRecipes = JSON.parse(stored);
+        // Convert createdAt strings back to Date objects
+        const recipesWithDates = parsedRecipes.map((recipe: any) => ({
+          ...recipe,
+          createdAt: new Date(recipe.createdAt),
+        }));
+        setRecipes(recipesWithDates);
       }
+    } catch (error) {
+      console.error("Error loading recipes:", error);
     }
+  };
 
-    const updated = [...dailyFoods, food];
-    setDailyFoods(updated);
-    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+  const addFood = async (food: FoodItem) => {
+    // Use functional update to avoid race conditions
+    setDailyFoods((prevDailyFoods) => {
+      // Allow adding the same food multiple times, but prevent duplicate favorites
+      // If this food is being added as a favorite, check if it's already favorited
+      if (food.isFavorite && food.barcode) {
+        const existingFavorite = prevDailyFoods.find(
+          (f) => f.barcode === food.barcode && f.isFavorite
+        );
+        if (existingFavorite) {
+          console.log("Food with barcode already favorited:", food.barcode);
+          // Remove the favorite flag from the new food since it's already favorited
+          food.isFavorite = false;
+        }
+      }
+
+      const updated = [...prevDailyFoods, food];
+      // Save to AsyncStorage asynchronously
+      AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving daily foods:", error);
+        }
+      );
+
+      return updated;
+    });
   };
 
   const removeFood = async (foodId: string) => {
-    const updated = dailyFoods.filter((food) => food.id !== foodId);
-    setDailyFoods(updated);
-    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+    setDailyFoods((prevDailyFoods) => {
+      const updated = prevDailyFoods.filter((food) => food.id !== foodId);
+      // Save to AsyncStorage asynchronously
+      AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving daily foods:", error);
+        }
+      );
+      return updated;
+    });
   };
 
   const updateFood = async (food: FoodItem) => {
-    const updated = dailyFoods.map((f) => (f.id === food.id ? food : f));
-    setDailyFoods(updated);
-    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+    setDailyFoods((prevDailyFoods) => {
+      const updated = prevDailyFoods.map((f) => (f.id === food.id ? food : f));
+      // Save to AsyncStorage asynchronously
+      AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving daily foods:", error);
+        }
+      );
+      return updated;
+    });
   };
 
   const getFoodsForDate = (date: Date) => {
@@ -207,11 +309,18 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const toggleFavorite = async (foodId: string) => {
-    const updated = dailyFoods.map((food) =>
-      food.id === foodId ? { ...food, isFavorite: !food.isFavorite } : food
-    );
-    setDailyFoods(updated);
-    await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
+    setDailyFoods((prevDailyFoods) => {
+      const updated = prevDailyFoods.map((food) =>
+        food.id === foodId ? { ...food, isFavorite: !food.isFavorite } : food
+      );
+      // Save to AsyncStorage asynchronously
+      AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving daily foods:", error);
+        }
+      );
+      return updated;
+    });
   };
 
   const toggleFavoriteByBarcode = async (barcode: string) => {
@@ -326,6 +435,55 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     }
   };
 
+  // Recipe management functions
+  const addRecipe = async (recipe: Recipe) => {
+    const updated = [...recipes, recipe];
+    setRecipes(updated);
+    try {
+      await AsyncStorage.setItem("recipes", JSON.stringify(updated));
+    } catch (error) {
+      console.error("Error saving recipes:", error);
+    }
+  };
+
+  const removeRecipe = async (recipeId: string) => {
+    const updated = recipes.filter((recipe) => recipe.id !== recipeId);
+    setRecipes(updated);
+    try {
+      await AsyncStorage.setItem("recipes", JSON.stringify(updated));
+    } catch (error) {
+      console.error("Error saving recipes:", error);
+    }
+  };
+
+  const updateRecipe = async (recipe: Recipe) => {
+    const updated = recipes.map((r) => (r.id === recipe.id ? recipe : r));
+    setRecipes(updated);
+    try {
+      await AsyncStorage.setItem("recipes", JSON.stringify(updated));
+    } catch (error) {
+      console.error("Error saving recipes:", error);
+    }
+  };
+
+  const toggleRecipeFavorite = async (recipeId: string) => {
+    const updated = recipes.map((recipe) =>
+      recipe.id === recipeId
+        ? { ...recipe, isFavorite: !recipe.isFavorite }
+        : recipe
+    );
+    setRecipes(updated);
+    try {
+      await AsyncStorage.setItem("recipes", JSON.stringify(updated));
+    } catch (error) {
+      console.error("Error saving recipes:", error);
+    }
+  };
+
+  const getFavoriteRecipes = () => {
+    return recipes.filter((recipe) => recipe.isFavorite);
+  };
+
   return (
     <FoodContext.Provider
       value={{
@@ -340,6 +498,12 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         findFoodByBarcode,
         findFoodByNameAndBrand,
         clearAllFavorites,
+        recipes,
+        addRecipe,
+        removeRecipe,
+        updateRecipe,
+        toggleRecipeFavorite,
+        getFavoriteRecipes,
         userGoals,
         setUserGoals,
         habits,

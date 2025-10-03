@@ -7,6 +7,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useRouter, useLocalSearchParams, Link } from "expo-router";
 import { useFood, FoodItem } from "../FoodContext"; // To get recent foods
@@ -16,11 +18,17 @@ import { FoodData, searchFoodByName } from "../FoodDataService";
 export default function AddFoodScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { dailyFoods, addFood, clearAllFavorites } = useFood();
+  const { dailyFoods, addFood, clearAllFavorites, recipes } = useFood();
+
+  // Check if we're in recipe mode
+  const isRecipeMode = params.mode === "recipe";
   // Search and filters
   const [query, setQuery] = useState("");
   const [apiResults, setApiResults] = useState<FoodData[]>([]);
   const [searching, setSearching] = useState(false);
+
+  // Modal state
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
 
   // API search function when the user types in the search bar
   useEffect(() => {
@@ -48,7 +56,7 @@ export default function AddFoodScreen() {
     : (params.meal as string) || "all";
 
   const [selectedTab, setSelectedTab] = useState<
-    "recent" | "favorites" | "added"
+    "recent" | "favorites" | "recipes" | "added"
   >("recent");
 
   // Totals for daily intake bar (all meals)
@@ -119,6 +127,11 @@ export default function AddFoodScreen() {
   });
 
   const currentList = useMemo(() => {
+    if (selectedTab === "recipes") {
+      // For recipes, we'll handle them separately since they're not FoodItem[]
+      return [];
+    }
+
     let base: FoodItem[] = [];
     if (selectedTab === "recent") base = uniqueRecentFoods;
     else if (selectedTab === "favorites") base = favoriteFoods;
@@ -130,6 +143,15 @@ export default function AddFoodScreen() {
       `${f.name} ${f.brand} ${f.mealType}`.toLowerCase().includes(q)
     );
   }, [selectedTab, uniqueRecentFoods, favoriteFoods, addedFoods, query]);
+
+  // Filter recipes based on search query
+  const filteredRecipes = useMemo(() => {
+    if (selectedTab !== "recipes") return [];
+
+    if (!query.trim()) return recipes;
+    const q = query.trim().toLowerCase();
+    return recipes.filter((recipe) => recipe.name.toLowerCase().includes(q));
+  }, [selectedTab, recipes, query]);
 
   // When searching, merge API results with local filtered items (dedup by name|brand)
   const displayList: FoodItem[] = useMemo(() => {
@@ -153,28 +175,34 @@ export default function AddFoodScreen() {
   }, [query, currentList, apiResults]);
 
   const addRecentFood = (food: FoodItem) => {
-    const newFoodItem: FoodItem = {
-      id: Date.now().toString(),
-      name: food.name || "Unnamed Food",
-      brand: food.brand || "Unknown Brand",
-      amount: food.amount || 1,
-      unit: food.unit || "serving",
-      barcode: food.barcode,
-      nutrition: {
-        calories: food.nutrition.calories || 0,
-        protein: food.nutrition.protein || 0,
-        carbs: food.nutrition.carbs || 0,
-        fat: food.nutrition.fat || 0,
-      },
-      proteinQuality:
-        food.proteinQuality ??
-        lookupProteinQuality(`${food.name} ${food.brand}`),
-      timestamp: new Date(),
-      mealType: mealType,
-    };
+    if (isRecipeMode) {
+      // In recipe mode, navigate to FoodDetailsScreen instead of adding directly
+      navigateToDetails(food);
+    } else {
+      // Normal mode - add to daily intake
+      const newFoodItem: FoodItem = {
+        id: Date.now().toString(),
+        name: food.name || "Unnamed Food",
+        brand: food.brand || "Unknown Brand",
+        amount: food.amount || 1,
+        unit: food.unit || "serving",
+        barcode: food.barcode,
+        nutrition: {
+          calories: food.nutrition.calories || 0,
+          protein: food.nutrition.protein || 0,
+          carbs: food.nutrition.carbs || 0,
+          fat: food.nutrition.fat || 0,
+        },
+        proteinQuality:
+          food.proteinQuality ??
+          lookupProteinQuality(`${food.name} ${food.brand}`),
+        timestamp: new Date(),
+        mealType: mealType,
+      };
 
-    addFood(newFoodItem);
-    router.back();
+      addFood(newFoodItem);
+      router.back();
+    }
   };
 
   const navigateToDetails = (food: FoodItem) => {
@@ -200,7 +228,10 @@ export default function AddFoodScreen() {
         String(food.nutrition.cholesterol || 0)
       )}` +
       `&sodium=${encodeURIComponent(String(food.nutrition.sodium || 0))}` +
-      `&potassium=${encodeURIComponent(String(food.nutrition.potassium || 0))}`;
+      `&potassium=${encodeURIComponent(
+        String(food.nutrition.potassium || 0)
+      )}` +
+      (isRecipeMode ? `&mode=recipe` : "");
 
     router.push(queryStr);
   };
@@ -229,16 +260,19 @@ export default function AddFoodScreen() {
         >
           <Text style={styles.headerLeftText}>×</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{String(mealType).toUpperCase()}</Text>
-        <TouchableOpacity
-          style={styles.headerRight}
-          onPress={() => {
-            /* open menu later */
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.headerRightText}>⋯</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>
+          {isRecipeMode ? "Add Ingredient" : String(mealType).toUpperCase()}
+        </Text>
+        {!isRecipeMode && (
+          <TouchableOpacity
+            style={styles.headerRight}
+            onPress={() => setShowOptionsModal(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.headerRightText}>⋯</Text>
+          </TouchableOpacity>
+        )}
+        {isRecipeMode && <View style={{ width: 36 }} />}
       </View>
 
       {/* Search + camera row */}
@@ -253,162 +287,196 @@ export default function AddFoodScreen() {
         />
         <TouchableOpacity
           style={styles.cameraButton}
-          onPress={() => router.push(`/scanner?meal=${mealType}`)}
+          onPress={() =>
+            router.push(
+              `/scanner?meal=${mealType}${isRecipeMode ? "&mode=recipe" : ""}`
+            )
+          }
         >
           <Text style={styles.cameraIcon}>📷</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Daily intake bar */}
-      <View style={styles.card}>
-        <View style={styles.dailyHeader}>
-          <Text style={styles.dailyLabel}>Daily intake</Text>
-          <Text
-            style={styles.dailyValue}
-          >{`${totals.calories}/${goals.calories} kcal`}</Text>
+      {/* Daily intake bar - hide in recipe mode */}
+      {!isRecipeMode && (
+        <View style={styles.card}>
+          <View style={styles.dailyHeader}>
+            <Text style={styles.dailyLabel}>Daily intake</Text>
+            <Text
+              style={styles.dailyValue}
+            >{`${totals.calories}/${goals.calories} kcal`}</Text>
+          </View>
+          <View style={styles.dailyTrack}>
+            <View
+              style={[
+                styles.dailyFill,
+                { width: `${pct(totals.calories, goals.calories) * 100}%` },
+              ]}
+            />
+          </View>
         </View>
-        <View style={styles.dailyTrack}>
-          <View
-            style={[
-              styles.dailyFill,
-              { width: `${pct(totals.calories, goals.calories) * 100}%` },
-            ]}
-          />
-        </View>
-      </View>
+      )}
 
       {/* Macro bars */}
-      <View style={styles.card}>
-        <View style={styles.macroRow}>
-          <View style={styles.macroCol}>
-            <Text style={styles.macroLabel}>Protein</Text>
-            <View style={styles.macroTrack}>
-              <View
-                style={[
-                  styles.macroFill,
-                  {
-                    width: `${pct(totals.protein, goals.protein) * 100}%`,
-                    backgroundColor: "#E57373",
-                  },
-                ]}
-              />
+      {!isRecipeMode && (
+        <View style={styles.card}>
+          <View style={styles.macroRow}>
+            <View style={styles.macroCol}>
+              <Text style={styles.macroLabel}>Protein</Text>
+              <View style={styles.macroTrack}>
+                <View
+                  style={[
+                    styles.macroFill,
+                    {
+                      width: `${pct(totals.protein, goals.protein) * 100}%`,
+                      backgroundColor: "#E57373",
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.macroValue}>{`${totals.protein.toFixed(0)}/${
+                goals.protein
+              }g`}</Text>
             </View>
-            <Text style={styles.macroValue}>{`${totals.protein.toFixed(0)}/${
-              goals.protein
-            }g`}</Text>
-          </View>
-          <View style={styles.macroCol}>
-            <Text style={styles.macroLabel}>Carbs</Text>
-            <View style={styles.macroTrack}>
-              <View
-                style={[
-                  styles.macroFill,
-                  {
-                    width: `${pct(totals.carbs, goals.carbs) * 100}%`,
-                    backgroundColor: "#FFB74D",
-                  },
-                ]}
-              />
+            <View style={styles.macroCol}>
+              <Text style={styles.macroLabel}>Carbs</Text>
+              <View style={styles.macroTrack}>
+                <View
+                  style={[
+                    styles.macroFill,
+                    {
+                      width: `${pct(totals.carbs, goals.carbs) * 100}%`,
+                      backgroundColor: "#FFB74D",
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.macroValue}>{`${totals.carbs.toFixed(0)}/${
+                goals.carbs
+              }g`}</Text>
             </View>
-            <Text style={styles.macroValue}>{`${totals.carbs.toFixed(0)}/${
-              goals.carbs
-            }g`}</Text>
-          </View>
-          <View style={styles.macroCol}>
-            <Text style={styles.macroLabel}>Fat</Text>
-            <View style={styles.macroTrack}>
-              <View
-                style={[
-                  styles.macroFill,
-                  {
-                    width: `${pct(totals.fat, goals.fat) * 100}%`,
-                    backgroundColor: "#9575CD",
-                  },
-                ]}
-              />
+            <View style={styles.macroCol}>
+              <Text style={styles.macroLabel}>Fat</Text>
+              <View style={styles.macroTrack}>
+                <View
+                  style={[
+                    styles.macroFill,
+                    {
+                      width: `${pct(totals.fat, goals.fat) * 100}%`,
+                      backgroundColor: "#9575CD",
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.macroValue}>{`${totals.fat.toFixed(0)}/${
+                goals.fat
+              }g`}</Text>
             </View>
-            <Text style={styles.macroValue}>{`${totals.fat.toFixed(0)}/${
-              goals.fat
-            }g`}</Text>
           </View>
         </View>
-      </View>
+      )}
 
-      {/* Filters */}
-      <View style={styles.filtersRow}>
-        <TouchableOpacity
-          style={[
-            styles.filterBtn,
-            selectedTab === "recent" && styles.filterBtnActive,
-          ]}
-          onPress={() => setSelectedTab("recent")}
-        >
-          <Text
+      {/* Filters - hide in recipe mode */}
+      {!isRecipeMode && (
+        <View style={styles.filtersRow}>
+          <TouchableOpacity
             style={[
-              styles.filterIcon,
-              selectedTab === "recent" && styles.filterIconActive,
+              styles.filterBtn,
+              selectedTab === "recent" && styles.filterBtnActive,
             ]}
+            onPress={() => setSelectedTab("recent")}
           >
-            ⏱️
-          </Text>
-          <Text
+            <Text
+              style={[
+                styles.filterIcon,
+                selectedTab === "recent" && styles.filterIconActive,
+              ]}
+            >
+              ⏱️
+            </Text>
+            <Text
+              style={[
+                styles.filterText,
+                selectedTab === "recent" && styles.filterTextActive,
+              ]}
+            >
+              Last tracked
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
-              styles.filterText,
-              selectedTab === "recent" && styles.filterTextActive,
+              styles.filterBtn,
+              selectedTab === "favorites" && styles.filterBtnActive,
             ]}
+            onPress={() => setSelectedTab("favorites")}
           >
-            Last tracked
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterBtn,
-            selectedTab === "favorites" && styles.filterBtnActive,
-          ]}
-          onPress={() => setSelectedTab("favorites")}
-        >
-          <Text
+            <Text
+              style={[
+                styles.filterIcon,
+                selectedTab === "favorites" && styles.filterIconActive,
+              ]}
+            >
+              ❤
+            </Text>
+            <Text
+              style={[
+                styles.filterText,
+                selectedTab === "favorites" && styles.filterTextActive,
+              ]}
+            >
+              Favorites
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
-              styles.filterIcon,
-              selectedTab === "favorites" && styles.filterIconActive,
+              styles.filterBtn,
+              selectedTab === "recipes" && styles.filterBtnActive,
             ]}
+            onPress={() => setSelectedTab("recipes")}
           >
-            ❤
-          </Text>
-          <Text
+            <Text
+              style={[
+                styles.filterIcon,
+                selectedTab === "recipes" && styles.filterIconActive,
+              ]}
+            >
+              📝
+            </Text>
+            <Text
+              style={[
+                styles.filterText,
+                selectedTab === "recipes" && styles.filterTextActive,
+              ]}
+            >
+              Recipes
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
-              styles.filterText,
-              selectedTab === "favorites" && styles.filterTextActive,
+              styles.filterBtn,
+              selectedTab === "added" && styles.filterBtnActive,
             ]}
+            onPress={() => setSelectedTab("added")}
           >
-            Favorites
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.filterBtn,
-            selectedTab === "added" && styles.filterBtnActive,
-          ]}
-          onPress={() => setSelectedTab("added")}
-        >
-          <Text
-            style={[
-              styles.filterIcon,
-              selectedTab === "added" && styles.filterIconActive,
-            ]}
-          >
-            📝
-          </Text>
-          <Text
-            style={[
-              styles.filterText,
-              selectedTab === "added" && styles.filterTextActive,
-            ]}
-          >
-            You added
-          </Text>
-        </TouchableOpacity>
-      </View>
+            <Text
+              style={[
+                styles.filterIcon,
+                selectedTab === "added" && styles.filterIconActive,
+              ]}
+            >
+              📋
+            </Text>
+            <Text
+              style={[
+                styles.filterText,
+                selectedTab === "added" && styles.filterTextActive,
+              ]}
+            >
+              You added
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Clear All Favorites Button - only show in favorites tab when there are favorites */}
       {selectedTab === "favorites" && favoriteFoods.length > 0 && (
@@ -444,12 +512,76 @@ export default function AddFoodScreen() {
 
       {/* List */}
       <View style={styles.recentSection}>
-        {displayList.length === 0 ? (
+        {selectedTab === "recipes" ? (
+          filteredRecipes.length === 0 ? (
+            <View style={styles.emptyRecipesContainer}>
+              <Text style={styles.emptyText}>
+                {recipes.length === 0
+                  ? "No recipes yet. Create your first recipe!"
+                  : "No recipes found"}
+              </Text>
+              {recipes.length === 0 && (
+                <TouchableOpacity
+                  style={styles.createRecipeButton}
+                  onPress={() =>
+                    router.push("/components/screens/CreateRecipeScreen")
+                  }
+                >
+                  <Text style={styles.createRecipeButtonText}>
+                    Create Recipe
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <FlatList
+              data={filteredRecipes}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={styles.listContent}
+              renderItem={({ item }) => (
+                <View style={styles.foodItem}>
+                  <TouchableOpacity
+                    style={styles.foodInfo}
+                    onPress={() => {
+                      router.push(
+                        `/components/screens/RecipeDetailsScreen?id=${item.id}`
+                      );
+                    }}
+                  >
+                    <View style={styles.foodNameRow}>
+                      <Text style={styles.foodName}>{item.name}</Text>
+                      <Text style={styles.foodBrand}>
+                        {item.servings} serving{item.servings !== 1 ? "s" : ""}
+                      </Text>
+                    </View>
+                    <Text style={styles.foodCalories}>
+                      {Math.round(item.nutritionPerServing.calories)} cal per
+                      serving
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.editButtonContainer}
+                    onPress={() => {
+                      // Navigate to EditRecipeScreen
+                      router.push(
+                        `/components/screens/EditRecipeScreen?editId=${item.id}`
+                      );
+                    }}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.editButton}>✏️</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          )
+        ) : displayList.length === 0 ? (
           <Text style={styles.emptyText}>No foods found</Text>
         ) : (
           <FlatList
             data={displayList}
             keyExtractor={(item) => item.id}
+            contentContainerStyle={styles.listContent}
             renderItem={({ item }) => (
               <View style={styles.foodItem}>
                 <TouchableOpacity
@@ -473,6 +605,59 @@ export default function AddFoodScreen() {
           />
         )}
       </View>
+
+      {/* Options Modal */}
+      <Modal visible={showOptionsModal} transparent={true} animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowOptionsModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setShowOptionsModal(false)}>
+                    <Text style={styles.modalClose}>×</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Create Recipe</Text>
+                  <View style={{ width: 24 }} />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setShowOptionsModal(false);
+                    router.push("/components/screens/CreateRecipeScreen");
+                  }}
+                >
+                  <Text style={styles.modalOptionIcon}>📝</Text>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>Create Recipe</Text>
+                    <Text style={styles.modalOptionSubtitle}>
+                      Save ingredients with specific amounts as a reusable
+                      recipe
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setShowOptionsModal(false);
+                    // Switch to recipes tab to show edit buttons
+                    setSelectedTab("recipes");
+                  }}
+                >
+                  <Text style={styles.modalOptionIcon}>✏️</Text>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>Edit Recipe</Text>
+                    <Text style={styles.modalOptionSubtitle}>
+                      Modify an existing recipe's ingredients and amounts
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </View>
   );
 }
@@ -658,10 +843,34 @@ const styles = StyleSheet.create({
   recentSection: {
     flex: 1,
   },
+  listContent: {
+    paddingBottom: 100, // Add space at bottom to avoid phone navigation overlap
+  },
   emptyText: {
     textAlign: "center",
     color: "#7f8c8d",
     fontStyle: "italic",
+  },
+  emptyRecipesContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  createRecipeButton: {
+    backgroundColor: "#4CAF50",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  createRecipeButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
   foodItem: {
     flexDirection: "row",
@@ -681,6 +890,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#2c3e50",
+  },
+  foodNameRow: {
+    flexDirection: "column",
+  },
+  foodBrand: {
+    fontSize: 14,
+    color: "#7f8c8d",
+    marginTop: 2,
+  },
+  foodCalories: {
+    fontSize: 14,
+    color: "#7f8c8d",
+    marginTop: 4,
   },
   foodDetails: {
     fontSize: 14,
@@ -703,6 +925,23 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     lineHeight: 22,
   },
+  editButtonContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#ff9800",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFF3E0",
+    marginLeft: 8,
+  },
+  editButton: {
+    fontSize: 16,
+    color: "#ff9800",
+    fontWeight: "bold",
+    lineHeight: 16,
+  },
   clearFavoritesContainer: {
     marginBottom: 12,
     alignItems: "center",
@@ -719,5 +958,66 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 15,
+    padding: 20,
+    width: "90%",
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  modalClose: {
+    fontSize: 24,
+    color: "#2c3e50",
+    width: 24,
+    textAlign: "left",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#2c3e50",
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 10,
+    backgroundColor: "#f8f9fa",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  modalOptionIcon: {
+    fontSize: 24,
+    marginRight: 15,
+  },
+  modalOptionText: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2c3e50",
+    marginBottom: 4,
+  },
+  modalOptionSubtitle: {
+    fontSize: 13,
+    color: "#7f8c8d",
+    lineHeight: 18,
   },
 });

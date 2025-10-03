@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Svg, { Circle, Path } from "react-native-svg";
 import { useFood } from "../FoodContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const SERVING_UNITS = [
   { label: "Serving", value: "serving" },
@@ -40,6 +41,9 @@ export default function FoodDetailsScreen() {
     findFoodByBarcode,
     findFoodByNameAndBrand,
   } = useFood();
+
+  // Check if we're in recipe mode
+  const isRecipeMode = params.mode === "recipe";
 
   // state variables
   const [selectedUnit, setSelectedUnit] = useState(
@@ -205,7 +209,7 @@ export default function FoodDetailsScreen() {
     };
   })();
 
-  const onTrack = () => {
+  const onTrack = async () => {
     const proteinQuality = lookupProteinQuality(
       `${params.name as string} ${params.brand as string}`
     );
@@ -289,7 +293,41 @@ export default function FoodDetailsScreen() {
       isFavorite: isFavorite,
     };
 
-    if (isEdit) {
+    if (isRecipeMode) {
+      // In recipe mode, save ingredient to AsyncStorage and navigate back to CreateRecipeScreen
+      const ingredientAmount = parseFloat(amount) || 1;
+      const ingredient = {
+        id: Date.now().toString(),
+        name: params.name || "Unnamed Food",
+        amount: ingredientAmount,
+        unit: selectedUnit,
+        calories: foodItem.nutrition.calories / ingredientAmount,
+        protein: foodItem.nutrition.protein / ingredientAmount,
+        carbs: foodItem.nutrition.carbs / ingredientAmount,
+        fat: foodItem.nutrition.fat / ingredientAmount,
+        fiber: (foodItem.nutrition.fiber || 0) / ingredientAmount,
+        sugars: (foodItem.nutrition.sugars || 0) / ingredientAmount,
+        saturatedFat: (foodItem.nutrition.saturatedFat || 0) / ingredientAmount,
+        unsaturatedFat:
+          (foodItem.nutrition.unsaturatedFat || 0) / ingredientAmount,
+        cholesterol: (foodItem.nutrition.cholesterol || 0) / ingredientAmount,
+        sodium: (foodItem.nutrition.sodium || 0) / ingredientAmount,
+        potassium: (foodItem.nutrition.potassium || 0) / ingredientAmount,
+      };
+
+      // Clear any existing pending ingredient first, then save the new one
+      try {
+        await AsyncStorage.removeItem("pendingRecipeIngredient");
+        await AsyncStorage.setItem(
+          "pendingRecipeIngredient",
+          JSON.stringify(ingredient)
+        );
+      } catch (error) {
+        console.error("Error saving ingredient:", error);
+      }
+      router.back();
+      router.back(); // Go back twice to return to CreateRecipeScreen
+    } else if (isEdit) {
       updateFood(foodItem as any);
       // When editing, just go back to the previous screen (which should be Daily Intake)
       router.back();
@@ -682,7 +720,11 @@ export default function FoodDetailsScreen() {
       <View style={styles.fixedButtonContainer}>
         <TouchableOpacity style={styles.trackButton} onPress={onTrack}>
           <Text style={styles.trackButtonText}>
-            {(params.mode as string) === "edit" ? "SAVE" : "TRACK"}
+            {isRecipeMode
+              ? "ADD INGREDIENT"
+              : (params.mode as string) === "edit"
+              ? "SAVE"
+              : "TRACK"}
           </Text>
         </TouchableOpacity>
       </View>

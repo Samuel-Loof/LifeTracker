@@ -8,6 +8,7 @@ export default function ScannerScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const mealParam = params.meal;
+  const modeParam = params.mode; // Check if we're in recipe mode
   const [resetKey, setResetKey] = useState(0);
 
   //Function to handle when a barcode is scanned and process the food data
@@ -78,6 +79,8 @@ export default function ScannerScreen() {
         targetMeal: mealParam || "breakfast",
         // Pass context about the navigation flow
         fromAddFood: "true",
+        // Pass recipe mode if we're in recipe mode
+        mode: modeParam || undefined,
         // Pass micronutrients
         fiber: (foodData.fiber || 0).toString(),
         sugars: (foodData.sugars || 0).toString(),
