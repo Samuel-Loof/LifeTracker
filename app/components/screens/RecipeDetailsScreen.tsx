@@ -37,30 +37,49 @@ export default function RecipeDetailsScreen() {
       const checkPendingIngredient = async () => {
         try {
           const pending = await AsyncStorage.getItem("pendingRecipeIngredient");
+          const editingRecipeId = await AsyncStorage.getItem("editingRecipeId");
+          const editingIngredientId = await AsyncStorage.getItem(
+            "editingIngredientId"
+          );
+
           if (pending) {
             const ingredient: RecipeIngredient = JSON.parse(pending);
-            // Use a more robust ID generation to avoid duplicates
-            const ingredientWithId = {
-              ...ingredient,
-              id:
-                ingredient.id ||
-                `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            };
-            setMealIngredients((prev) => {
-              // Check if ingredient already exists to prevent duplicates
-              const exists = prev.some(
-                (ing) =>
-                  ing.name === ingredientWithId.name &&
-                  ing.amount === ingredientWithId.amount &&
-                  ing.unit === ingredientWithId.unit
+
+            // Check if we're editing an existing ingredient
+            if (editingRecipeId === recipe.id && editingIngredientId) {
+              // Update existing ingredient in RecipeDetailsScreen
+              setMealIngredients((prev) =>
+                prev.map((ing) =>
+                  ing.id === editingIngredientId ? ingredient : ing
+                )
               );
-              if (exists) {
-                return prev;
-              }
-              return [...prev, ingredientWithId];
-            });
-            // Clear the pending ingredient
+            } else {
+              // Add new ingredient
+              const ingredientWithId = {
+                ...ingredient,
+                id:
+                  ingredient.id ||
+                  `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              };
+              setMealIngredients((prev) => {
+                // Check if ingredient already exists to prevent duplicates
+                const exists = prev.some(
+                  (ing) =>
+                    ing.name === ingredientWithId.name &&
+                    ing.amount === ingredientWithId.amount &&
+                    ing.unit === ingredientWithId.unit
+                );
+                if (exists) {
+                  return prev;
+                }
+                return [...prev, ingredientWithId];
+              });
+            }
+
+            // Clear the pending ingredient and editing info
             await AsyncStorage.removeItem("pendingRecipeIngredient");
+            await AsyncStorage.removeItem("editingRecipeId");
+            await AsyncStorage.removeItem("editingIngredientId");
           }
         } catch (error) {
           console.error("Error checking pending ingredient:", error);
@@ -68,7 +87,7 @@ export default function RecipeDetailsScreen() {
       };
 
       checkPendingIngredient();
-    }, [])
+    }, [recipe.id])
   );
 
   const addIngredientToMeal = (ingredient: RecipeIngredient) => {
@@ -292,7 +311,9 @@ export default function RecipeDetailsScreen() {
                     `&potassium=${encodeURIComponent(
                       String(ingredient.potassium)
                     )}` +
-                    `&mode=recipe`;
+                    `&mode=edit-ingredient` +
+                    `&ingredientId=${encodeURIComponent(ingredient.id)}` +
+                    `&recipeId=${encodeURIComponent(recipe.id)}`;
                   router.push(queryStr);
                 }}
               >

@@ -45,30 +45,49 @@ export default function EditRecipeScreen() {
       const checkPendingIngredient = async () => {
         try {
           const pending = await AsyncStorage.getItem("pendingRecipeIngredient");
+          const editingRecipeId = await AsyncStorage.getItem("editingRecipeId");
+          const editingIngredientId = await AsyncStorage.getItem(
+            "editingIngredientId"
+          );
+
           if (pending) {
             const ingredient: RecipeIngredient = JSON.parse(pending);
-            // Use a more robust ID generation to avoid duplicates
-            const ingredientWithId = {
-              ...ingredient,
-              id:
-                ingredient.id ||
-                `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            };
-            setIngredients((prev) => {
-              // Check if ingredient already exists to prevent duplicates
-              const exists = prev.some(
-                (ing) =>
-                  ing.name === ingredientWithId.name &&
-                  ing.amount === ingredientWithId.amount &&
-                  ing.unit === ingredientWithId.unit
+
+            // Check if we're editing an existing ingredient
+            if (editingRecipeId === recipeId && editingIngredientId) {
+              // Update existing ingredient in EditRecipeScreen
+              setIngredients((prev) =>
+                prev.map((ing) =>
+                  ing.id === editingIngredientId ? ingredient : ing
+                )
               );
-              if (exists) {
-                return prev;
-              }
-              return [...prev, ingredientWithId];
-            });
-            // Clear the pending ingredient
+            } else {
+              // Add new ingredient
+              const ingredientWithId = {
+                ...ingredient,
+                id:
+                  ingredient.id ||
+                  `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              };
+              setIngredients((prev) => {
+                // Check if ingredient already exists to prevent duplicates
+                const exists = prev.some(
+                  (ing) =>
+                    ing.name === ingredientWithId.name &&
+                    ing.amount === ingredientWithId.amount &&
+                    ing.unit === ingredientWithId.unit
+                );
+                if (exists) {
+                  return prev;
+                }
+                return [...prev, ingredientWithId];
+              });
+            }
+
+            // Clear the pending ingredient and editing info
             await AsyncStorage.removeItem("pendingRecipeIngredient");
+            await AsyncStorage.removeItem("editingRecipeId");
+            await AsyncStorage.removeItem("editingIngredientId");
           }
         } catch (error) {
           console.error("Error checking pending ingredient:", error);
@@ -76,7 +95,7 @@ export default function EditRecipeScreen() {
       };
 
       checkPendingIngredient();
-    }, [])
+    }, [recipeId])
   );
 
   if (!originalRecipe) {
@@ -301,12 +320,66 @@ export default function EditRecipeScreen() {
             <View style={styles.ingredientsList}>
               {ingredients.map((ingredient) => (
                 <View key={ingredient.id} style={styles.ingredientItem}>
-                  <View style={styles.ingredientInfo}>
-                    <Text style={styles.ingredientName}>{ingredient.name}</Text>
-                    <Text style={styles.ingredientAmount}>
-                      {ingredient.amount} {ingredient.unit}
+                  <TouchableOpacity
+                    style={styles.ingredientContent}
+                    onPress={() => {
+                      const queryStr =
+                        `/components/screens/FoodDetailsScreen?` +
+                        `name=${encodeURIComponent(ingredient.name)}` +
+                        `&brand=${encodeURIComponent("")}` +
+                        `&calories=${encodeURIComponent(
+                          String(ingredient.calories)
+                        )}` +
+                        `&protein=${encodeURIComponent(
+                          String(ingredient.protein)
+                        )}` +
+                        `&carbs=${encodeURIComponent(
+                          String(ingredient.carbs)
+                        )}` +
+                        `&fat=${encodeURIComponent(String(ingredient.fat))}` +
+                        `&amount=${encodeURIComponent(
+                          String(ingredient.amount)
+                        )}` +
+                        `&unit=${encodeURIComponent(ingredient.unit)}` +
+                        `&fiber=${encodeURIComponent(
+                          String(ingredient.fiber)
+                        )}` +
+                        `&sugars=${encodeURIComponent(
+                          String(ingredient.sugars)
+                        )}` +
+                        `&saturatedFat=${encodeURIComponent(
+                          String(ingredient.saturatedFat)
+                        )}` +
+                        `&unsaturatedFat=${encodeURIComponent(
+                          String(ingredient.unsaturatedFat)
+                        )}` +
+                        `&cholesterol=${encodeURIComponent(
+                          String(ingredient.cholesterol)
+                        )}` +
+                        `&sodium=${encodeURIComponent(
+                          String(ingredient.sodium)
+                        )}` +
+                        `&potassium=${encodeURIComponent(
+                          String(ingredient.potassium)
+                        )}` +
+                        `&mode=edit-ingredient` +
+                        `&ingredientId=${encodeURIComponent(ingredient.id)}` +
+                        `&recipeId=${encodeURIComponent(recipeId)}`;
+                      router.push(queryStr);
+                    }}
+                  >
+                    <View style={styles.ingredientInfo}>
+                      <Text style={styles.ingredientName}>
+                        {ingredient.name}
+                      </Text>
+                      <Text style={styles.ingredientAmount}>
+                        {ingredient.amount} {ingredient.unit}
+                      </Text>
+                    </View>
+                    <Text style={styles.ingredientCalories}>
+                      {Math.round(ingredient.calories * ingredient.amount)} cal
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.removeButton}
                     onPress={() => removeIngredient(ingredient.id)}
@@ -507,11 +580,21 @@ const styles = StyleSheet.create({
   ingredientItem: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+  },
+  ingredientContent: {
+    flex: 1,
+    flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
+    alignItems: "center",
   },
   ingredientInfo: {
     flex: 1,
@@ -520,24 +603,30 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "500",
     color: "#333",
-    marginBottom: 2,
+    marginBottom: 4,
   },
   ingredientAmount: {
     fontSize: 14,
     color: "#666",
   },
+  ingredientCalories: {
+    fontSize: 14,
+    color: "#007AFF",
+    fontWeight: "600",
+  },
   removeButton: {
-    backgroundColor: "#ff4444",
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    backgroundColor: "#ff6b6b",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: 12,
   },
   removeButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "bold",
   },
   nutritionCard: {
     backgroundColor: "#fff",

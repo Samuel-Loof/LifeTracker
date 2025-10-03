@@ -44,6 +44,9 @@ export default function FoodDetailsScreen() {
 
   // Check if we're in recipe mode
   const isRecipeMode = params.mode === "recipe";
+  const isEditIngredientMode = params.mode === "edit-ingredient";
+  const ingredientId = params.ingredientId as string;
+  const recipeId = params.recipeId as string;
 
   // state variables
   const [selectedUnit, setSelectedUnit] = useState(
@@ -327,6 +330,41 @@ export default function FoodDetailsScreen() {
       }
       router.back();
       router.back(); // Go back twice to return to CreateRecipeScreen
+    } else if (isEditIngredientMode) {
+      // In edit-ingredient mode, save updated ingredient to AsyncStorage
+      const ingredientAmount = parseFloat(amount) || 1;
+      const updatedIngredient = {
+        id: ingredientId,
+        name: params.name || "Unnamed Food",
+        amount: ingredientAmount,
+        unit: selectedUnit,
+        calories: foodItem.nutrition.calories / ingredientAmount,
+        protein: foodItem.nutrition.protein / ingredientAmount,
+        carbs: foodItem.nutrition.carbs / ingredientAmount,
+        fat: foodItem.nutrition.fat / ingredientAmount,
+        fiber: (foodItem.nutrition.fiber || 0) / ingredientAmount,
+        sugars: (foodItem.nutrition.sugars || 0) / ingredientAmount,
+        saturatedFat: (foodItem.nutrition.saturatedFat || 0) / ingredientAmount,
+        unsaturatedFat:
+          (foodItem.nutrition.unsaturatedFat || 0) / ingredientAmount,
+        cholesterol: (foodItem.nutrition.cholesterol || 0) / ingredientAmount,
+        sodium: (foodItem.nutrition.sodium || 0) / ingredientAmount,
+        potassium: (foodItem.nutrition.potassium || 0) / ingredientAmount,
+      };
+
+      try {
+        await AsyncStorage.removeItem("pendingRecipeIngredient");
+        await AsyncStorage.setItem(
+          "pendingRecipeIngredient",
+          JSON.stringify(updatedIngredient)
+        );
+        // Also store the recipe ID and ingredient ID for proper handling
+        await AsyncStorage.setItem("editingRecipeId", recipeId);
+        await AsyncStorage.setItem("editingIngredientId", ingredientId);
+      } catch (error) {
+        console.error("Error saving updated ingredient:", error);
+      }
+      router.back();
     } else if (isEdit) {
       updateFood(foodItem as any);
       // When editing, just go back to the previous screen (which should be Daily Intake)
@@ -411,19 +449,21 @@ export default function FoodDetailsScreen() {
           </View>
         </View>
 
-        {/* Meal row */}
-        <View style={styles.cardRow}>
-          <Text style={styles.labelInline}>Meal</Text>
-          <TouchableOpacity
-            style={styles.mealButton}
-            onPress={() => setShowMealPicker(true)}
-          >
-            <View style={styles.unitButtonContent}>
-              <Text style={styles.mealText}>{selectedMeal}</Text>
-              <Text style={styles.chevron}>▼</Text>
-            </View>
-          </TouchableOpacity>
-        </View>
+        {/* Meal row - hidden in recipe mode */}
+        {!isRecipeMode && !isEditIngredientMode && (
+          <View style={styles.cardRow}>
+            <Text style={styles.labelInline}>Meal</Text>
+            <TouchableOpacity
+              style={styles.mealButton}
+              onPress={() => setShowMealPicker(true)}
+            >
+              <View style={styles.unitButtonContent}>
+                <Text style={styles.mealText}>{selectedMeal}</Text>
+                <Text style={styles.chevron}>▼</Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Calories row */}
         <View style={styles.cardRow}>
@@ -722,6 +762,8 @@ export default function FoodDetailsScreen() {
           <Text style={styles.trackButtonText}>
             {isRecipeMode
               ? "ADD INGREDIENT"
+              : isEditIngredientMode
+              ? "SAVE"
               : (params.mode as string) === "edit"
               ? "SAVE"
               : "TRACK"}
@@ -757,36 +799,38 @@ export default function FoodDetailsScreen() {
         </TouchableWithoutFeedback>
       </Modal>
 
-      {/* Meal picker modal */}
-      <Modal visible={showMealPicker} transparent={true} animationType="fade">
-        <TouchableWithoutFeedback onPress={() => setShowMealPicker(false)}>
-          <View style={styles.modalOverlay}>
-            <TouchableWithoutFeedback>
-              <View style={styles.modalContent}>
-                <View style={styles.modalHeader}>
-                  <TouchableOpacity onPress={() => setShowMealPicker(false)}>
-                    <Text style={styles.modalClose}>×</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.modalTitle}>Select Meal</Text>
-                  <View style={{ width: 24 }} />
+      {/* Meal picker modal - hidden in recipe mode */}
+      {!isRecipeMode && !isEditIngredientMode && (
+        <Modal visible={showMealPicker} transparent={true} animationType="fade">
+          <TouchableWithoutFeedback onPress={() => setShowMealPicker(false)}>
+            <View style={styles.modalOverlay}>
+              <TouchableWithoutFeedback>
+                <View style={styles.modalContent}>
+                  <View style={styles.modalHeader}>
+                    <TouchableOpacity onPress={() => setShowMealPicker(false)}>
+                      <Text style={styles.modalClose}>×</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.modalTitle}>Select Meal</Text>
+                    <View style={{ width: 24 }} />
+                  </View>
+                  {MEAL_OPTIONS.map((meal) => (
+                    <TouchableOpacity
+                      key={meal.value}
+                      style={styles.optionButton}
+                      onPress={() => {
+                        setSelectedMeal(meal.value);
+                        setShowMealPicker(false);
+                      }}
+                    >
+                      <Text style={styles.optionText}>{meal.label}</Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
-                {MEAL_OPTIONS.map((meal) => (
-                  <TouchableOpacity
-                    key={meal.value}
-                    style={styles.optionButton}
-                    onPress={() => {
-                      setSelectedMeal(meal.value);
-                      setShowMealPicker(false);
-                    }}
-                  >
-                    <Text style={styles.optionText}>{meal.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+              </TouchableWithoutFeedback>
+            </View>
+          </TouchableWithoutFeedback>
+        </Modal>
+      )}
     </View>
   );
 }
