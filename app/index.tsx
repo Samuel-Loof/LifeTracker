@@ -417,7 +417,7 @@ export default function HomeScreen() {
     const {
       waterSettings,
       addWaterIntake,
-      removeWaterIntake,
+      removeWaterIntakeByAmount,
       getTodayWaterIntake,
       waterIntakes,
     } = useFood();
@@ -427,30 +427,27 @@ export default function HomeScreen() {
     const maxContainers = Math.ceil(waterSettings.dailyGoal / containerAmount);
     const filledContainers = Math.floor(todayIntake / containerAmount);
 
+    console.log(
+      `Water Debug: todayIntake=${todayIntake}, containerAmount=${containerAmount}, filledContainers=${filledContainers}, maxContainers=${maxContainers}`
+    );
+
     const handleContainerClick = (containerIndex: number) => {
       const isFilled = containerIndex < filledContainers;
       const isPartiallyFilled =
         containerIndex === filledContainers &&
         todayIntake % containerAmount > 0;
 
+      console.log(
+        `Container ${containerIndex}: isFilled=${isFilled}, isPartiallyFilled=${isPartiallyFilled}, todayIntake=${todayIntake}, containerAmount=${containerAmount}`
+      );
+
       if (isFilled || isPartiallyFilled) {
-        // Remove water - find the most recent water intake and remove it
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
-
-        const todayIntakes = waterIntakes.filter((intake) => {
-          const intakeDate = new Date(intake.timestamp);
-          return intakeDate >= today && intakeDate < tomorrow;
-        });
-
-        if (todayIntakes.length > 0) {
-          const mostRecentIntake = todayIntakes[todayIntakes.length - 1];
-          removeWaterIntake(mostRecentIntake.id);
-        }
+        // Remove water - remove the most recent intake of the current container amount
+        console.log(`Removing water: ${containerAmount}L`);
+        removeWaterIntakeByAmount(containerAmount);
       } else {
         // Add water
+        console.log(`Adding water: ${containerAmount}L`);
         addWaterIntake(containerAmount);
       }
     };
@@ -507,7 +504,7 @@ export default function HomeScreen() {
           <View style={styles.waterContainer}>
             <View style={styles.containersGrid}>{renderContainers()}</View>
             <Text style={styles.waterAmount}>
-              {todayIntake.toFixed(1)}L / {waterSettings.dailyGoal}L
+              {todayIntake}L / {waterSettings.dailyGoal}L
             </Text>
             <Text style={styles.waterSubtext}>
               Tap containers to add/remove {containerAmount}L

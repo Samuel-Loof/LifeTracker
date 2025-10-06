@@ -185,6 +185,7 @@ interface FoodContextType {
   updateWaterSettings: (settings: WaterSettings) => Promise<void>;
   addWaterIntake: (amount: number) => void;
   removeWaterIntake: (id: string) => void;
+  removeWaterIntakeByAmount: (amount: number) => void;
   getTodayWaterIntake: () => number;
 }
 
@@ -528,6 +529,119 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     });
   };
 
+  const removeWaterIntakeByAmount = (amount: number) => {
+    setWaterIntakes((prev) => {
+      // Find the most recent intake with the specified amount
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const todayIntakes = prev.filter((intake) => {
+        const intakeDate = new Date(intake.timestamp);
+        return intakeDate >= today && intakeDate < tomorrow;
+      });
+
+      console.log(
+        `Looking for amount ${amount}L in today's intakes:`,
+        todayIntakes.map((i) => ({ amount: i.amount, id: i.id }))
+      );
+
+      // First try to find exact matches
+      let matchingIntakes = todayIntakes.filter(
+        (intake) => intake.amount === amount
+      );
+
+      // If no exact matches and we're trying to remove 0.5L, try to remove two 0.25L intakes
+      if (matchingIntakes.length === 0 && amount === 0.5) {
+        const smallIntakes = todayIntakes.filter(
+          (intake) => intake.amount === 0.25
+        );
+        if (smallIntakes.length >= 2) {
+          // Remove the two most recent 0.25L intakes
+          const sortedSmallIntakes = smallIntakes.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          const toRemove = sortedSmallIntakes.slice(0, 2);
+          console.log(
+            `Removing two 0.25L intakes to simulate 0.5L removal:`,
+            toRemove.map((i) => i.id)
+          );
+          const updated = prev.filter(
+            (intake) => !toRemove.some((remove) => remove.id === intake.id)
+          );
+          AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+            (error) => {
+              console.error("Error saving water intakes:", error);
+            }
+          );
+          return updated;
+        }
+      }
+
+      // If no exact matches and we're trying to remove 0.25L, try to split a 0.5L intake
+      if (matchingIntakes.length === 0 && amount === 0.25) {
+        const largeIntakes = todayIntakes.filter(
+          (intake) => intake.amount === 0.5
+        );
+        if (largeIntakes.length > 0) {
+          // Find the most recent 0.5L intake and split it
+          const sortedLargeIntakes = largeIntakes.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          const toSplit = sortedLargeIntakes[0];
+          console.log(
+            `Splitting 0.5L intake to simulate 0.25L removal:`,
+            toSplit.id
+          );
+
+          // Remove the 0.5L intake and add a 0.25L intake back
+          const updated = prev.filter((intake) => intake.id !== toSplit.id);
+          const newIntake = {
+            ...toSplit,
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            amount: 0.25,
+            timestamp: new Date(),
+          };
+          updated.push(newIntake);
+
+          AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+            (error) => {
+              console.error("Error saving water intakes:", error);
+            }
+          );
+          return updated;
+        }
+      }
+
+      console.log(
+        `Found ${matchingIntakes.length} matching intakes for ${amount}L`
+      );
+
+      if (matchingIntakes.length > 0) {
+        const mostRecentMatchingIntake =
+          matchingIntakes[matchingIntakes.length - 1];
+        console.log(
+          `Removing intake: ${mostRecentMatchingIntake.amount}L (ID: ${mostRecentMatchingIntake.id})`
+        );
+        const updated = prev.filter(
+          (intake) => intake.id !== mostRecentMatchingIntake.id
+        );
+        // Save to AsyncStorage asynchronously
+        AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+          (error) => {
+            console.error("Error saving water intakes:", error);
+          }
+        );
+        return updated;
+      }
+      console.log(`No matching intakes found for ${amount}L`);
+      return prev;
+    });
+  };
+
   const getTodayWaterIntake = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -625,6 +739,7 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         updateWaterSettings,
         addWaterIntake,
         removeWaterIntake,
+        removeWaterIntakeByAmount,
         getTodayWaterIntake,
       }}
     >
