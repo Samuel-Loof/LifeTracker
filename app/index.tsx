@@ -9,7 +9,14 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
-import Svg, { Circle } from "react-native-svg";
+import Svg, {
+  Circle,
+  Path,
+  Defs,
+  LinearGradient as SvgLinearGradient,
+  Stop,
+  Rect,
+} from "react-native-svg";
 import { useFood } from "./components/FoodContext";
 
 export default function HomeScreen() {
@@ -378,6 +385,62 @@ export default function HomeScreen() {
     return sums;
   }, [dailyFoods]);
 
+  // Custom SVG Glass Icon
+  const GlassIcon = ({
+    fillHeight = 0,
+    isFilled = false,
+    isPartiallyFilled = false,
+  }) => (
+    <Svg width="32" height="40" viewBox="0 0 32 40">
+      {/* Glass outline */}
+      <Path
+        d="M6 4 L6 36 L26 36 L26 4 L22 4 L22 2 L10 2 L10 4 Z"
+        stroke="#4CAF50"
+        strokeWidth="2"
+        fill="none"
+      />
+      {/* Water fill */}
+      {(isFilled || isPartiallyFilled) && (
+        <Rect
+          x="7"
+          y={isFilled ? "6" : `${40 - fillHeight * 0.85 - 2}`}
+          width="18"
+          height={isFilled ? "28" : `${fillHeight * 0.85}`}
+          fill="#2196F3"
+          opacity="0.8"
+        />
+      )}
+    </Svg>
+  );
+
+  // Custom SVG Bottle Icon
+  const BottleIcon = ({
+    fillHeight = 0,
+    isFilled = false,
+    isPartiallyFilled = false,
+  }) => (
+    <Svg width="32" height="40" viewBox="0 0 32 40">
+      {/* Bottle outline */}
+      <Path
+        d="M8 4 L8 8 L12 8 L12 4 L20 4 L20 8 L24 8 L24 4 L24 36 L8 36 Z"
+        stroke="#4CAF50"
+        strokeWidth="2"
+        fill="none"
+      />
+      {/* Water fill */}
+      {(isFilled || isPartiallyFilled) && (
+        <Rect
+          x="9"
+          y={isFilled ? "6" : `${40 - fillHeight * 0.85 - 2}`}
+          width="14"
+          height={isFilled ? "28" : `${fillHeight * 0.85}`}
+          fill="#2196F3"
+          opacity="0.8"
+        />
+      )}
+    </Svg>
+  );
+
   const WaterTracker = () => {
     const {
       waterSettings,
@@ -440,22 +503,19 @@ export default function HomeScreen() {
             style={styles.containerWrapper}
             onPress={() => handleContainerClick(i)}
           >
-            <View style={styles.containerOutline}>
-              {isFilled && (
-                <View style={[styles.containerFill, { height: "100%" }]} />
-              )}
-              {isPartiallyFilled && (
-                <View
-                  style={[
-                    styles.containerFill,
-                    { height: `${partialFillHeight}%` },
-                  ]}
-                />
-              )}
-              <Text style={styles.containerIcon}>
-                {waterSettings.containerType === "glass" ? "🥛" : "🍼"}
-              </Text>
-            </View>
+            {waterSettings.containerType === "glass" ? (
+              <GlassIcon
+                fillHeight={partialFillHeight}
+                isFilled={isFilled}
+                isPartiallyFilled={isPartiallyFilled}
+              />
+            ) : (
+              <BottleIcon
+                fillHeight={partialFillHeight}
+                isFilled={isFilled}
+                isPartiallyFilled={isPartiallyFilled}
+              />
+            )}
           </TouchableOpacity>
         );
       }
@@ -878,30 +938,7 @@ const styles = StyleSheet.create({
   containerWrapper: {
     alignItems: "center",
     marginHorizontal: 4,
-    position: "relative",
-  },
-  containerOutline: {
-    width: 32,
-    height: 40,
-    position: "relative",
-    justifyContent: "center",
-    alignItems: "center",
     marginBottom: 4,
-    overflow: "hidden",
-  },
-  containerFill: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "#2196F3",
-    borderRadius: 0,
-    opacity: 0.8,
-  },
-  containerIcon: {
-    fontSize: 24,
-    zIndex: 2,
-    position: "relative",
   },
   waterAmount: {
     fontSize: 16,
