@@ -192,6 +192,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+    paddingBottom: 120, // Add extra bottom padding to avoid Android navigation buttons
   },
   section: {
     marginBottom: 32,
@@ -322,6 +323,7 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 20,
+    marginBottom: 100, // Add bottom margin to avoid Android navigation buttons
     elevation: 3,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
