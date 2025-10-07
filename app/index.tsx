@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   ScrollView,
   PanResponder,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
@@ -22,6 +24,7 @@ import { useFood } from "./components/FoodContext";
 export default function HomeScreen() {
   const router = useRouter();
   const { dailyFoods, userGoals, getFoodsForDate } = useFood();
+  const [showNavModal, setShowNavModal] = useState(false);
 
   // Day navigation state
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -416,12 +419,12 @@ export default function HomeScreen() {
   const WaterTracker = () => {
     const {
       waterSettings,
-      addWaterIntake,
-      removeWaterIntakeByAmount,
-      getTodayWaterIntake,
+      addWaterIntakeForDate,
+      removeWaterIntakeByAmountForDate,
+      getWaterIntakeForDate,
       waterIntakes,
     } = useFood();
-    const todayIntake = getTodayWaterIntake();
+    const todayIntake = getWaterIntakeForDate(currentDate);
     const containerAmount =
       waterSettings.containerType === "glass" ? 0.25 : 0.5;
     const maxContainers = Math.ceil(waterSettings.dailyGoal / containerAmount);
@@ -442,13 +445,17 @@ export default function HomeScreen() {
       );
 
       if (isFilled || isPartiallyFilled) {
-        // Remove water - remove the most recent intake of the current container amount
-        console.log(`Removing water: ${containerAmount}L`);
-        removeWaterIntakeByAmount(containerAmount);
+        // Remove water for selected date
+        console.log(
+          `Removing water: ${containerAmount}L on ${currentDate.toDateString()}`
+        );
+        removeWaterIntakeByAmountForDate(containerAmount, currentDate);
       } else {
-        // Add water
-        console.log(`Adding water: ${containerAmount}L`);
-        addWaterIntake(containerAmount);
+        // Add water for selected date
+        console.log(
+          `Adding water: ${containerAmount}L on ${currentDate.toDateString()}`
+        );
+        addWaterIntakeForDate(containerAmount, currentDate);
       }
     };
 
@@ -566,7 +573,45 @@ export default function HomeScreen() {
     >
       {/* Header */}
       <View style={styles.header}>
-        <View style={{ width: 28 }} />
+        <TouchableOpacity
+          style={styles.calendarButton}
+          onPress={() => setShowNavModal(true)}
+          onLongPress={() => {
+            // Open quick options modal for Streaks or Fasting
+            const options = [
+              "Streaks (My Progress)",
+              "Fasting",
+              "Cancel",
+            ] as const;
+            // Basic inline modal replacement using Alert for now
+            try {
+              // Lazy import Alert to keep existing imports minimal
+              const { Alert } = require("react-native");
+              Alert.alert(
+                "Open",
+                "Where do you want to go?",
+                [
+                  {
+                    text: options[0],
+                    onPress: () =>
+                      router.push("/components/screens/HabitDashboardScreen"),
+                  },
+                  {
+                    text: options[1],
+                    onPress: () =>
+                      router.push("/components/screens/FastingScreen"),
+                  },
+                  { text: options[2], style: "cancel" },
+                ],
+                { cancelable: true }
+              );
+            } catch (e) {
+              router.push("/components/screens/HabitDashboardScreen");
+            }
+          }}
+        >
+          <Text style={styles.calendarIcon}>📅</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>LifeTrack3r</Text>
         <TouchableOpacity
           onPress={() => router.push("/components/screens/UserProfileScreen")}
@@ -719,6 +764,59 @@ export default function HomeScreen() {
 
         <View style={{ height: 16 }} />
       </ScrollView>
+
+      {/* Streaks/Fasting Modal (matches recipe modal style) */}
+      <Modal visible={showNavModal} transparent animationType="fade">
+        <TouchableWithoutFeedback onPress={() => setShowNavModal(false)}>
+          <View style={styles.modalOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setShowNavModal(false)}>
+                    <Text style={styles.modalClose}>×</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>Open</Text>
+                  <View style={{ width: 24 }} />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setShowNavModal(false);
+                    router.push("/components/screens/HabitDashboardScreen");
+                  }}
+                >
+                  <Text style={styles.modalOptionIcon}>📅</Text>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>
+                      Streaks (My Progress)
+                    </Text>
+                    <Text style={styles.modalOptionSubtitle}>
+                      Track clean/relapse days and view your calendar
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setShowNavModal(false);
+                    router.push("/components/screens/FastingScreen");
+                  }}
+                >
+                  <Text style={styles.modalOptionIcon}>⏰</Text>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>Fasting</Text>
+                    <Text style={styles.modalOptionSubtitle}>
+                      Start, stop, and configure your fasting schedule
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </LinearGradient>
   );
 }
@@ -772,6 +870,19 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#2c3e50",
   },
+  calendarButton: {
+    width: 28,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#eee",
+  },
+  calendarIcon: {
+    fontSize: 14,
+  },
   profileButton: {
     width: 28,
     height: 28,
@@ -784,6 +895,67 @@ const styles = StyleSheet.create({
   },
   profileIcon: {
     fontSize: 14,
+  },
+  // Modal styles (reuse from AddFoodScreen for consistent look)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: "white",
+    borderRadius: 15,
+    padding: 20,
+    width: "90%",
+    maxWidth: 400,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  modalClose: {
+    fontSize: 24,
+    color: "#2c3e50",
+    width: 24,
+    textAlign: "left",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    textAlign: "center",
+    color: "#2c3e50",
+  },
+  modalOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 15,
+    borderRadius: 10,
+    backgroundColor: "#f8f9fa",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#e9ecef",
+  },
+  modalOptionIcon: {
+    fontSize: 24,
+    marginRight: 15,
+  },
+  modalOptionText: {
+    flex: 1,
+  },
+  modalOptionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2c3e50",
+    marginBottom: 4,
+  },
+  modalOptionSubtitle: {
+    fontSize: 13,
+    color: "#7f8c8d",
+    lineHeight: 18,
   },
   scrollContent: {
     padding: 20,

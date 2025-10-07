@@ -1,205 +1,540 @@
-import React, { useMemo, useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Switch,
+  ScrollView,
   PanResponder,
-  GestureResponderEvent,
-  PanResponderGestureState,
+  Dimensions,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { useFood } from "../FoodContext";
+import { useHabits, FastingSettings } from "../HabitContext";
 
 export default function FastingScreen() {
   const router = useRouter();
-  const { fasting, setFasting } = useFood();
+  const {
+    fastingSettings,
+    updateFastingSettings,
+    startFastingSession,
+    endFastingSession,
+    getCurrentFastingSession,
+  } = useHabits();
 
-  const [fastH, setFastH] = useState<number>(fasting.fastingHours);
-  const eatH = 24 - fastH;
-
-  const barWidth = 280;
-  const minFast = 12;
-  const maxFast = 23;
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onPanResponderMove: (
-          _: GestureResponderEvent,
-          gesture: PanResponderGestureState
-        ) => {
-          const dx = gesture.moveX - gesture.x0; // not ideal globally, but simple for now
-          const ratio = Math.max(
-            0,
-            Math.min(1, (dx + barWidth / 2) / barWidth)
-          );
-          const hours = Math.round(minFast + ratio * (maxFast - minFast));
-          setFastH(hours);
-        },
-        onPanResponderRelease: () => {},
-      }),
-    []
+  const [localSettings, setLocalSettings] = useState(fastingSettings);
+  const [currentSession, setCurrentSession] = useState(
+    getCurrentFastingSession()
   );
 
-  const knobPosition = useMemo(() => {
-    const ratio = (fastH - minFast) / (maxFast - minFast);
-    return Math.max(0, Math.min(1, ratio)) * barWidth;
-  }, [fastH]);
+  useEffect(() => {
+    setLocalSettings(fastingSettings);
+  }, [fastingSettings]);
+
+  useEffect(() => {
+    setCurrentSession(getCurrentFastingSession());
+  }, [getCurrentFastingSession]);
+
+  const handleSave = async () => {
+    await updateFastingSettings(localSettings);
+    router.back();
+  };
+
+  const handleFastingHoursChange = (hours: number) => {
+    const newHours = Math.max(8, Math.min(24, hours));
+    const eatingHours = 24 - newHours;
+    setLocalSettings((prev: FastingSettings) => ({
+      ...prev,
+      fastingHours: newHours,
+      eatingWindowHours: eatingHours,
+    }));
+  };
+
+  const panResponder = PanResponder.create({
+    onMoveShouldSetPanResponder: () => true,
+    onPanResponderMove: (evt, gestureState) => {
+      const { moveX } = gestureState;
+      const sliderWidth = Dimensions.get("window").width - 80;
+      const sliderX = 40;
+      const relativeX = moveX - sliderX;
+      const percentage = Math.max(0, Math.min(1, relativeX / sliderWidth));
+      const hours = Math.round(8 + percentage * 16); // 8-24 hours
+      handleFastingHoursChange(hours);
+    },
+  });
+
+  const handleStartFasting = async () => {
+    await startFastingSession();
+    setCurrentSession(getCurrentFastingSession());
+  };
+
+  const handleEndFasting = async () => {
+    await endFastingSession();
+    setCurrentSession(null);
+  };
+
+  const getFastingStatus = () => {
+    if (!currentSession) return "Not fasting";
+
+    const startTime = new Date(currentSession.startTime);
+    const now = new Date();
+    const hoursElapsed =
+      (now.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    const hoursRemaining = localSettings.fastingHours - hoursElapsed;
+
+    if (hoursRemaining <= 0) {
+      return "Fasting complete!";
+    }
+
+    return `${hoursRemaining.toFixed(1)} hours remaining`;
+  };
+
+  const getFastingProgress = () => {
+    if (!currentSession) return 0;
+
+    const startTime = new Date(currentSession.startTime);
+    const now = new Date();
+    const hoursElapsed =
+      (now.getTime() - startTime.getTime()) / (1000 * 60 * 60);
+    const progress = Math.min(1, hoursElapsed / localSettings.fastingHours);
+
+    return progress * 100;
+  };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.headerBack}
-        >
-          <Text style={styles.headerBackText}>×</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Fasting</Text>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 60 }} />
+        <Text style={styles.title}>Fasting</Text>
+        <View style={{ width: 60 }} />
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Fasting Window</Text>
-        <Text style={styles.helperText}>
-          Drag to adjust ratio (e.g., 16:8 → 18:6)
-        </Text>
-
-        <View style={styles.sliderContainer}>
-          <View style={styles.track} {...panResponder.panHandlers}>
-            <View
-              style={[styles.fastSegment, { width: (fastH / 24) * barWidth }]}
-            />
-            <View
-              style={[styles.eatSegment, { width: (eatH / 24) * barWidth }]}
-            />
-            <View style={[styles.knob, { left: knobPosition - 12 }]} />
+      <View style={styles.content}>
+        {/* Current Status */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Current Status</Text>
+          <View style={styles.statusCard}>
+            <Text style={styles.statusText}>{getFastingStatus()}</Text>
+            {currentSession && (
+              <View style={styles.progressContainer}>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${getFastingProgress()}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.progressText}>
+                  {getFastingProgress().toFixed(1)}% complete
+                </Text>
+              </View>
+            )}
           </View>
-          <Text style={styles.ratioText}>
-            {fastH}:{eatH}
-          </Text>
-        </View>
-      </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Notifications</Text>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>1 hour before end</Text>
-          <Switch
-            value={!!fasting.notifyOneHourBefore}
-            onValueChange={(v) => setFasting({ notifyOneHourBefore: v })}
-          />
+          <View style={styles.actionButtons}>
+            {!currentSession ? (
+              <TouchableOpacity
+                style={styles.startButton}
+                onPress={handleStartFasting}
+              >
+                <Text style={styles.startButtonText}>Start Fasting</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.endButton}
+                onPress={handleEndFasting}
+              >
+                <Text style={styles.endButtonText}>End Fasting</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>At end</Text>
-          <Switch
-            value={!!fasting.notifyAtEnd}
-            onValueChange={(v) => setFasting({ notifyAtEnd: v })}
-          />
-        </View>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>At start</Text>
-          <Switch
-            value={!!fasting.notifyAtStart}
-            onValueChange={(v) => setFasting({ notifyAtStart: v })}
-          />
-        </View>
-      </View>
 
-      <TouchableOpacity
-        style={styles.saveButton}
-        onPress={async () => {
-          await setFasting({ fastingHours: fastH });
-          router.back();
-        }}
-      >
-        <Text style={styles.saveButtonText}>Save</Text>
-      </TouchableOpacity>
-    </View>
+        {/* Fasting Settings */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Fasting Schedule</Text>
+          <View style={styles.settingsCard}>
+            <View style={styles.sliderContainer}>
+              <Text style={styles.sliderLabel}>
+                Fasting Hours: {localSettings.fastingHours}h
+              </Text>
+              <View style={styles.sliderTrack} {...panResponder.panHandlers}>
+                <View
+                  style={[
+                    styles.sliderFill,
+                    {
+                      width: `${
+                        ((localSettings.fastingHours - 8) / 16) * 100
+                      }%`,
+                    },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.sliderThumb,
+                    {
+                      left: `${((localSettings.fastingHours - 8) / 16) * 100}%`,
+                    },
+                  ]}
+                />
+              </View>
+              <View style={styles.sliderLabels}>
+                <Text style={styles.sliderLabelText}>8h</Text>
+                <Text style={styles.sliderLabelText}>16h</Text>
+                <Text style={styles.sliderLabelText}>24h</Text>
+              </View>
+            </View>
+
+            <View style={styles.scheduleInfo}>
+              <View style={styles.scheduleRow}>
+                <Text style={styles.scheduleLabel}>Fasting:</Text>
+                <Text style={styles.scheduleValue}>
+                  {localSettings.fastingHours} hours
+                </Text>
+              </View>
+              <View style={styles.scheduleRow}>
+                <Text style={styles.scheduleLabel}>Eating Window:</Text>
+                <Text style={styles.scheduleValue}>
+                  {localSettings.eatingWindowHours} hours
+                </Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Popular Fasting Types */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Popular Fasting Types</Text>
+          <View style={styles.fastingTypesGrid}>
+            {[
+              {
+                name: "16:8",
+                fasting: 16,
+                eating: 8,
+                description: "Most popular",
+              },
+              {
+                name: "18:6",
+                fasting: 18,
+                eating: 6,
+                description: "More restrictive",
+              },
+              {
+                name: "20:4",
+                fasting: 20,
+                eating: 4,
+                description: "Warrior diet",
+              },
+              {
+                name: "OMAD",
+                fasting: 23,
+                eating: 1,
+                description: "One meal a day",
+              },
+            ].map((type) => (
+              <TouchableOpacity
+                key={type.name}
+                style={[
+                  styles.fastingTypeButton,
+                  localSettings.fastingHours === type.fasting &&
+                    styles.fastingTypeButtonActive,
+                ]}
+                onPress={() => {
+                  setLocalSettings((prev: FastingSettings) => ({
+                    ...prev,
+                    fastingHours: type.fasting,
+                    eatingWindowHours: type.eating,
+                  }));
+                }}
+              >
+                <Text style={styles.fastingTypeName}>{type.name}</Text>
+                <Text style={styles.fastingTypeDescription}>
+                  {type.description}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Benefits */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Benefits</Text>
+          <View style={styles.benefitsList}>
+            {[
+              "Weight loss and fat burning",
+              "Improved insulin sensitivity",
+              "Enhanced mental clarity",
+              "Cellular repair (autophagy)",
+              "Reduced inflammation",
+              "Longevity benefits",
+            ].map((benefit, index) => (
+              <View key={index} style={styles.benefitItem}>
+                <Text style={styles.benefitIcon}>✓</Text>
+                <Text style={styles.benefitText}>{benefit}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Save Button */}
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>Save Settings</Text>
+        </TouchableOpacity>
+
+        {/* Bottom spacer to avoid phone navigation buttons */}
+        <View style={styles.bottomSpacer} />
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f8f9fa" },
+  container: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+  },
   header: {
-    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
+    paddingTop: 15,
+    paddingBottom: 12,
+    paddingHorizontal: 20,
+    backgroundColor: "#f8f9fa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#dee2e6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  headerBack: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-  },
-  headerBackText: {
-    fontSize: 22,
-    color: "#2c3e50",
+  title: {
+    fontSize: 18,
     fontWeight: "700",
-    lineHeight: 22,
+    color: "#2c3e50",
+    letterSpacing: 0.5,
   },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: "#2c3e50" },
-  card: {
+  content: {
+    padding: 20,
+    paddingBottom: 120,
+  },
+  section: {
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#2c3e50",
+    marginBottom: 16,
+  },
+  statusCard: {
     backgroundColor: "#fff",
-    borderRadius: 10,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: "#eee",
-    margin: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  cardTitle: {
+  statusText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#2c3e50",
+    textAlign: "center",
+    marginBottom: 16,
+  },
+  progressContainer: {
+    alignItems: "center",
+  },
+  progressBar: {
+    width: "100%",
+    height: 8,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 4,
+    marginBottom: 8,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#4CAF50",
+    borderRadius: 4,
+  },
+  progressText: {
+    fontSize: 14,
+    color: "#666",
+  },
+  actionButtons: {
+    alignItems: "center",
+  },
+  startButton: {
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+  },
+  startButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  endButton: {
+    backgroundColor: "#e74c3c",
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+  },
+  endButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  settingsCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sliderContainer: {
+    marginBottom: 20,
+  },
+  sliderLabel: {
     fontSize: 16,
     fontWeight: "600",
     color: "#2c3e50",
-    marginBottom: 8,
+    marginBottom: 16,
+    textAlign: "center",
   },
-  helperText: { color: "#7f8c8d", fontSize: 12, marginBottom: 8 },
-  sliderContainer: { alignItems: "center" },
-  track: {
-    width: 280,
-    height: 24,
-    borderRadius: 12,
-    overflow: "hidden",
-    flexDirection: "row",
-    backgroundColor: "#f1f4f7",
+  sliderTrack: {
+    height: 8,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 4,
     position: "relative",
+    marginBottom: 16,
   },
-  fastSegment: { backgroundColor: "#e6eef4", height: "100%" },
-  eatSegment: { backgroundColor: "#d7f3e3", height: "100%" },
-  knob: {
+  sliderFill: {
+    height: "100%",
+    backgroundColor: "#4CAF50",
+    borderRadius: 4,
+  },
+  sliderThumb: {
     position: "absolute",
-    top: -8,
-    width: 24,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ddd",
+    top: -6,
+    width: 20,
+    height: 20,
+    backgroundColor: "#4CAF50",
+    borderRadius: 10,
+    borderWidth: 3,
+    borderColor: "#fff",
+    marginLeft: -10,
   },
-  ratioText: { marginTop: 8, color: "#2c3e50", fontWeight: "700" },
-  rowBetween: {
+  sliderLabels: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
   },
-  label: { color: "#2c3e50" },
+  sliderLabelText: {
+    fontSize: 12,
+    color: "#666",
+  },
+  scheduleInfo: {
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+    paddingTop: 16,
+  },
+  scheduleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  scheduleLabel: {
+    fontSize: 14,
+    color: "#666",
+  },
+  scheduleValue: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#2c3e50",
+  },
+  fastingTypesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+  },
+  fastingTypeButton: {
+    width: "48%",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    alignItems: "center",
+  },
+  fastingTypeButtonActive: {
+    borderColor: "#4CAF50",
+    backgroundColor: "#f0f8f0",
+  },
+  fastingTypeName: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#2c3e50",
+    marginBottom: 4,
+  },
+  fastingTypeDescription: {
+    fontSize: 12,
+    color: "#666",
+    textAlign: "center",
+  },
+  benefitsList: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  benefitItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  benefitIcon: {
+    fontSize: 16,
+    color: "#27ae60",
+    marginRight: 12,
+    fontWeight: "700",
+  },
+  benefitText: {
+    fontSize: 14,
+    color: "#2c3e50",
+    flex: 1,
+  },
   saveButton: {
-    backgroundColor: "#3498db",
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: "#4CAF50",
+    borderRadius: 12,
+    paddingVertical: 16,
     alignItems: "center",
-    marginHorizontal: 12,
-    marginTop: 12,
+    marginTop: 20,
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
-  saveButtonText: { color: "white", fontSize: 16, fontWeight: "700" },
+  saveButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  bottomSpacer: {
+    height: 80,
+  },
 });

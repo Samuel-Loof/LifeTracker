@@ -794,12 +794,7 @@ export default function CaloriesMacrosScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.headerBack}
-        >
-          <Text style={styles.headerBackText}>×</Text>
-        </TouchableOpacity>
+        <View style={{ width: 36 }} />
         <Text style={styles.headerTitle}>Calories & Macros</Text>
         <View style={{ width: 36 }} />
       </View>
@@ -839,9 +834,7 @@ export default function CaloriesMacrosScreen() {
               <Text style={styles.statValue}>{age} years</Text>
             </View>
           </View>
-          <Text style={styles.helperText}>
-            BMR: {Math.round(bmr)} kcal • TDEE: {tdee} kcal
-          </Text>
+          {/* Removed BMR/TDEE helper text per request */}
         </View>
 
         {/* Goal Settings */}

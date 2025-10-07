@@ -187,6 +187,10 @@ interface FoodContextType {
   removeWaterIntake: (id: string) => void;
   removeWaterIntakeByAmount: (amount: number) => void;
   getTodayWaterIntake: () => number;
+  // Date-scoped helpers
+  addWaterIntakeForDate: (amount: number, date: Date) => void;
+  removeWaterIntakeByAmountForDate: (amount: number, date: Date) => void;
+  getWaterIntakeForDate: (date: Date) => number;
 }
 
 // Create context
@@ -516,6 +520,25 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     });
   };
 
+  const addWaterIntakeForDate = (amount: number, date: Date) => {
+    const normalized = new Date(date);
+    normalized.setHours(12, 0, 0, 0);
+    const newIntake: WaterIntake = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      amount,
+      timestamp: normalized,
+    };
+    setWaterIntakes((prev) => {
+      const updated = [...prev, newIntake];
+      AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving water intakes:", error);
+        }
+      );
+      return updated;
+    });
+  };
+
   const removeWaterIntake = (id: string) => {
     setWaterIntakes((prev) => {
       const updated = prev.filter((intake) => intake.id !== id);
@@ -530,9 +553,13 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const removeWaterIntakeByAmount = (amount: number) => {
+    return removeWaterIntakeByAmountForDate(amount, new Date());
+  };
+
+  const removeWaterIntakeByAmountForDate = (amount: number, date: Date) => {
     setWaterIntakes((prev) => {
       // Find the most recent intake with the specified amount
-      const today = new Date();
+      const today = new Date(date);
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
@@ -642,19 +669,20 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     });
   };
 
-  const getTodayWaterIntake = () => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
+  const getWaterIntakeForDate = (date: Date) => {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
     return waterIntakes
       .filter((intake) => {
-        const intakeDate = new Date(intake.timestamp);
-        return intakeDate >= today && intakeDate < tomorrow;
+        const d = new Date(intake.timestamp);
+        return d >= start && d < end;
       })
-      .reduce((total, intake) => total + intake.amount, 0);
+      .reduce((sum, i) => sum + i.amount, 0);
   };
+
+  const getTodayWaterIntake = () => getWaterIntakeForDate(new Date());
 
   // Recipe management functions
   const addRecipe = async (recipe: Recipe) => {
@@ -738,9 +766,12 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         waterIntakes,
         updateWaterSettings,
         addWaterIntake,
+        addWaterIntakeForDate,
         removeWaterIntake,
         removeWaterIntakeByAmount,
+        removeWaterIntakeByAmountForDate,
         getTodayWaterIntake,
+        getWaterIntakeForDate,
       }}
     >
       {children}

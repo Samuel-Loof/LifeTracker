@@ -115,12 +115,7 @@ export default function PersonalDetailsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => router.back()}
-          style={styles.headerBack}
-        >
-          <Text style={styles.headerBackText}>×</Text>
-        </TouchableOpacity>
+        <View style={{ width: 36 }} />
         <Text style={styles.headerTitle}>Personal Details</Text>
         <View style={{ width: 36 }} />
       </View>
