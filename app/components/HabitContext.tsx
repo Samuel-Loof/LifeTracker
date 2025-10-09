@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { Alert, Linking, Platform, AppState } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 // Lazy-load notifications to avoid type errors if module isn't installed
 let Notifications: any;
@@ -89,6 +90,16 @@ export interface HabitContextType {
   // Notifications
   scheduleHabitNotification: (habitId: string, days: number) => Promise<void>;
   cancelHabitNotification: (habitId: string) => Promise<void>;
+  // Debug helpers
+  testFastingNotifications: () => Promise<void>;
+  testStreakNotifications: (habitId: string) => Promise<void>;
+  // Notification helpers
+  ensureNotificationsEnabled: (interactive?: boolean) => Promise<boolean>;
+  getNotificationPermissions: () => Promise<{
+    granted: boolean;
+    canAskAgain?: boolean;
+    status?: string;
+  }>;
 }
 
 // Create context
@@ -109,11 +120,23 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     notifications: true,
   });
   const [fastingSessions, setFastingSessions] = useState<FastingSession[]>([]);
+  const [appState, setAppState] = useState<string>(AppState.currentState);
 
   // Load data from AsyncStorage on mount
   useEffect(() => {
     loadData();
   }, []);
+
+  // AppState listener to trigger daily checks when resuming to foreground
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (appState.match(/inactive|background/) && next === "active") {
+        autoMarkTodayForActiveHabits();
+      }
+      setAppState(next);
+    });
+    return () => sub.remove();
+  }, [appState, habits, habitEntries]);
 
   // Notifications: configure handler and ask permissions once
   useEffect(() => {
@@ -126,9 +149,31 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
             shouldSetBadge: false,
           }),
         });
+
+        // Android requires a channel; without it, notifications may be dropped
+        if (
+          Platform.OS === "android" &&
+          Notifications.setNotificationChannelAsync
+        ) {
+          try {
+            await Notifications.setNotificationChannelAsync("default", {
+              name: "Default",
+              importance: Notifications.AndroidImportance.DEFAULT,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: "#FF231F7C",
+            });
+          } catch {}
+        }
+
         const settings = await Notifications.getPermissionsAsync();
+        console.log("Current notification permissions:", settings);
+
         if (!settings.granted) {
-          await Notifications.requestPermissionsAsync();
+          const result = await Notifications.requestPermissionsAsync();
+          console.log("Requested notification permissions:", result);
+          if (!result.granted) {
+            console.warn("Notification permissions denied by user");
+          }
         }
       } catch (e) {
         console.warn("Notification setup failed:", e);
@@ -309,34 +354,78 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     updateHabitStreaks(habitId);
   };
 
+  // Helper: ISO date for today
+  const formatISODate = (date: Date): string => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  // Auto-mark today's entry as success for active habits (no backfill)
+  const autoMarkTodayForActiveHabits = async () => {
+    try {
+      const todayISO = formatISODate(new Date());
+      for (const habit of habits) {
+        if (!habit.isActive) continue;
+        const existing = habitEntries.find(
+          (e) => e.habitId === habit.id && e.date === todayISO
+        );
+        if (!existing) {
+          await setHabitDayStatus(habit.id, todayISO, "success");
+        }
+      }
+    } catch (e) {
+      console.warn("autoMarkTodayForActiveHabits failed", e);
+    }
+  };
+
+  // Run auto-mark on startup and whenever habits toggle active
+  useEffect(() => {
+    autoMarkTodayForActiveHabits();
+  }, [habits]);
+
   // Streak calculation functions
   const getCurrentStreak = (habitId: string): number => {
     const habit = habits.find((h) => h.id === habitId);
     if (!habit) return 0;
 
-    const entries = habitEntries
-      .filter((entry) => entry.habitId === habitId)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    // Build quick lookup maps for day statuses
+    const entries = habitEntries.filter((e) => e.habitId === habitId);
+    const successByDate = new Set<string>();
+    const skipByDate = new Set<string>();
+    for (const e of entries) {
+      if (e.status === "success") successByDate.add(e.date);
+      if (e.status === "skip") skipByDate.add(e.date);
+    }
 
+    // Helper to format a date to ISO yyyy-mm-dd
+    const toISO = (d: Date) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      return `${y}-${m}-${dd}`;
+    };
+
+    // Start from today; if today is skip, move back until we hit a non-skip day
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    while (true) {
+      const iso = toISO(cursor);
+      if (!skipByDate.has(iso)) break;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    // Count consecutive success days ending at the last non-skip day
     let streak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 0; i < entries.length; i++) {
-      const entryDate = new Date(entries[i].date);
-      entryDate.setHours(0, 0, 0, 0);
-
-      const expectedDate = new Date(today);
-      expectedDate.setDate(today.getDate() - i);
-
-      if (
-        entryDate.getTime() === expectedDate.getTime() &&
-        entries[i].status === "success"
-      ) {
-        streak++;
-      } else {
-        break;
+    while (true) {
+      const iso = toISO(cursor);
+      if (successByDate.has(iso)) {
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+        continue;
       }
+      break;
     }
 
     return streak;
@@ -469,12 +558,89 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const getCurrentFastingSession = (): FastingSession | null => {
-    return fastingSessions.find((session) => !session.completed) || null;
+    const activeSession = fastingSessions.find((session) => !session.completed);
+
+    // Auto-cycle: if no active session but fasting is enabled, check if we should start a new cycle
+    if (!activeSession && fastingSettings.isActive) {
+      const now = new Date();
+      const lastSession = fastingSessions
+        .filter((s) => s.completed)
+        .sort(
+          (a, b) =>
+            new Date(b.endTime || b.startTime).getTime() -
+            new Date(a.endTime || a.startTime).getTime()
+        )[0];
+
+      if (lastSession) {
+        const lastEndTime = new Date(
+          lastSession.endTime || lastSession.startTime
+        );
+        const eatingWindowEnd = new Date(
+          lastEndTime.getTime() +
+            fastingSettings.eatingWindowHours * 60 * 60 * 1000
+        );
+
+        // If eating window has ended, auto-start new fasting session
+        if (now >= eatingWindowEnd) {
+          startFastingSession();
+          return fastingSessions.find((session) => !session.completed) || null;
+        }
+      } else {
+        // No previous sessions, start immediately if fasting is active
+        startFastingSession();
+        return fastingSessions.find((session) => !session.completed) || null;
+      }
+    }
+
+    return activeSession || null;
   };
 
   // Notification helpers
   const notificationStoreKey = "habitNotificationIds";
   const fastingNotificationStoreKey = "fastingNotificationIds"; // sessionId -> ids
+
+  const getNotificationPermissions = async () => {
+    try {
+      const settings = await Notifications.getPermissionsAsync();
+      return settings as {
+        granted: boolean;
+        canAskAgain?: boolean;
+        status?: string;
+      };
+    } catch (e) {
+      return { granted: false };
+    }
+  };
+
+  const ensureNotificationsEnabled = async (
+    interactive: boolean = true
+  ): Promise<boolean> => {
+    try {
+      const settings = await Notifications.getPermissionsAsync();
+      if (settings.granted) return true;
+
+      if (interactive) {
+        if (settings.canAskAgain) {
+          const result = await Notifications.requestPermissionsAsync();
+          if (result.granted) return true;
+        }
+        Alert.alert(
+          "Enable Notifications",
+          "To get fasting and streak reminders, enable notifications in Settings.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Open Settings",
+              onPress: () => Linking.openSettings().catch(() => {}),
+            },
+          ]
+        );
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  };
 
   const scheduleHabitNotification = async (habitId: string, days: number) => {
     const habit = habits.find((h) => h.id === habitId);
@@ -575,6 +741,116 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     await setFastingNotificationIds(session.id, ids);
   };
 
+  // DEBUG: schedule second-scale test notifications for fasting
+  const testFastingNotifications = async () => {
+    try {
+      // Check permissions first
+      const settings = await Notifications.getPermissionsAsync();
+      console.log("Test fasting notifications - permissions:", settings);
+
+      if (!settings.granted) {
+        console.warn("Notifications not granted, requesting...");
+        const result = await Notifications.requestPermissionsAsync();
+        if (!result.granted) {
+          console.error("Cannot test notifications - permissions denied");
+          return;
+        }
+      }
+
+      console.log("Scheduling test fasting notifications...");
+
+      const id1 = await Notifications.scheduleNotificationAsync({
+        content: { title: "[TEST] Fasting started", body: "Now", sound: null },
+        trigger: { seconds: 2 },
+      });
+      console.log("Scheduled notification 1:", id1);
+
+      const id2 = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "[TEST] Fasting ending soon",
+          body: "10s mark",
+          sound: null,
+        },
+        trigger: { seconds: 10 },
+      });
+      console.log("Scheduled notification 2:", id2);
+
+      const id3 = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "[TEST] Fasting complete",
+          body: "15s mark",
+          sound: null,
+        },
+        trigger: { seconds: 15 },
+      });
+      console.log("Scheduled notification 3:", id3);
+
+      console.log("All test notifications scheduled successfully!");
+    } catch (e) {
+      console.error("testFastingNotifications failed:", e);
+    }
+  };
+
+  // DEBUG: schedule second-scale test notifications for habit milestones
+  const testStreakNotifications = async (habitId: string) => {
+    const habit = habits.find((h) => h.id === habitId);
+    if (!habit) {
+      console.error("Habit not found for ID:", habitId);
+      return;
+    }
+
+    try {
+      // Check permissions first
+      const settings = await Notifications.getPermissionsAsync();
+      console.log("Test streak notifications - permissions:", settings);
+
+      if (!settings.granted) {
+        console.warn("Notifications not granted, requesting...");
+        const result = await Notifications.requestPermissionsAsync();
+        if (!result.granted) {
+          console.error("Cannot test notifications - permissions denied");
+          return;
+        }
+      }
+
+      console.log(`Scheduling test streak notifications for ${habit.name}...`);
+
+      const id1 = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `[TEST] ${habit.name}: 1 day streak`,
+          body: "Simulated",
+          sound: null,
+        },
+        trigger: { seconds: 2 },
+      });
+      console.log("Scheduled streak notification 1:", id1);
+
+      const id2 = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `[TEST] ${habit.name}: 7 days streak`,
+          body: "Simulated",
+          sound: null,
+        },
+        trigger: { seconds: 5 },
+      });
+      console.log("Scheduled streak notification 2:", id2);
+
+      const id3 = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `[TEST] ${habit.name}: 30 days streak`,
+          body: "Simulated",
+          sound: null,
+        },
+        trigger: { seconds: 10 },
+      });
+      console.log("Scheduled streak notification 3:", id3);
+
+      console.log("All test streak notifications scheduled successfully!");
+    } catch (e) {
+      console.error("testStreakNotifications failed:", e);
+    }
+  };
+
   const cancelFastingNotifications = async (sessionId: string) => {
     const map = await readNotificationStore(fastingNotificationStoreKey);
     const ids: string[] = map[sessionId] || [];
@@ -641,6 +917,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     getCurrentFastingSession,
     scheduleHabitNotification,
     cancelHabitNotification,
+    testFastingNotifications,
+    testStreakNotifications,
+    ensureNotificationsEnabled,
+    getNotificationPermissions,
   };
 
   return (

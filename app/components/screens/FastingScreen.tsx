@@ -72,8 +72,21 @@ export default function FastingScreen() {
     setCurrentSession(null);
   };
 
+  const handleStopFasting = async () => {
+    await updateFastingSettings({ isActive: false });
+    if (currentSession) {
+      await endFastingSession();
+      setCurrentSession(null);
+    }
+  };
+
   const getFastingStatus = () => {
-    if (!currentSession) return "Not fasting";
+    if (!currentSession) {
+      if (localSettings.isActive) {
+        return "Auto-cycling enabled - Next fast will start automatically";
+      }
+      return "Not fasting";
+    }
 
     const startTime = new Date(currentSession.startTime);
     const now = new Date();
@@ -82,7 +95,7 @@ export default function FastingScreen() {
     const hoursRemaining = localSettings.fastingHours - hoursElapsed;
 
     if (hoursRemaining <= 0) {
-      return "Fasting complete!";
+      return "Fasting complete! Next cycle will start automatically";
     }
 
     return `${hoursRemaining.toFixed(1)} hours remaining`;
@@ -132,23 +145,7 @@ export default function FastingScreen() {
             )}
           </View>
 
-          <View style={styles.actionButtons}>
-            {!currentSession ? (
-              <TouchableOpacity
-                style={styles.startButton}
-                onPress={handleStartFasting}
-              >
-                <Text style={styles.startButtonText}>Start Fasting</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.endButton}
-                onPress={handleEndFasting}
-              >
-                <Text style={styles.endButtonText}>End Fasting</Text>
-              </TouchableOpacity>
-            )}
-          </View>
+          {/* Actions moved to bottom */}
         </View>
 
         {/* Fasting Settings */}
@@ -198,6 +195,27 @@ export default function FastingScreen() {
                 <Text style={styles.scheduleValue}>
                   {localSettings.eatingWindowHours} hours
                 </Text>
+              </View>
+              <View style={styles.scheduleRow}>
+                <Text style={styles.scheduleLabel}>Auto-Cycling:</Text>
+                <TouchableOpacity
+                  style={styles.toggleButton}
+                  onPress={() =>
+                    setLocalSettings((prev) => ({
+                      ...prev,
+                      isActive: !prev.isActive,
+                    }))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.toggleText,
+                      { color: localSettings.isActive ? "#4CAF50" : "#666" },
+                    ]}
+                  >
+                    {localSettings.isActive ? "ON" : "OFF"}
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
           </View>
@@ -277,10 +295,49 @@ export default function FastingScreen() {
           </View>
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>Save Settings</Text>
-        </TouchableOpacity>
+        {/* Bottom Actions */}
+        <View style={styles.footerCard}>
+          {!currentSession ? (
+            <View style={styles.footerRow}>
+              <TouchableOpacity
+                style={[styles.footerPrimary, styles.footerButton]}
+                onPress={handleStartFasting}
+              >
+                <Text style={styles.footerPrimaryText}>Start Fasting</Text>
+              </TouchableOpacity>
+              {localSettings.isActive && (
+                <TouchableOpacity
+                  style={[styles.footerSecondary, styles.footerButton]}
+                  onPress={handleStopFasting}
+                >
+                  <Text style={styles.footerSecondaryText}>
+                    Stop Auto-Cycling
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          ) : (
+            <View style={styles.footerRow}>
+              <TouchableOpacity
+                style={[styles.footerDanger, styles.footerButton]}
+                onPress={handleEndFasting}
+              >
+                <Text style={styles.footerDangerText}>End Current Fast</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.footerSecondary, styles.footerButton]}
+                onPress={handleStopFasting}
+              >
+                <Text style={styles.footerSecondaryText}>Stop All Fasting</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Save Button */}
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+            <Text style={styles.saveButtonText}>Save Settings</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Bottom spacer to avoid phone navigation buttons */}
         <View style={styles.bottomSpacer} />
@@ -369,6 +426,12 @@ const styles = StyleSheet.create({
   actionButtons: {
     alignItems: "center",
   },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+    justifyContent: "center",
+  },
   startButton: {
     backgroundColor: "#4CAF50",
     borderRadius: 12,
@@ -387,6 +450,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   endButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  stopButton: {
+    backgroundColor: "#6c757d",
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+  },
+  stopButtonText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
@@ -461,6 +535,16 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#2c3e50",
   },
+  toggleButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: "#f0f0f0",
+  },
+  toggleText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
   fastingTypesGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -533,6 +617,56 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
+  },
+  footerCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  footerRow: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginBottom: 12,
+  },
+  footerButton: {
+    flexGrow: 1,
+    alignItems: "center",
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  footerPrimary: {
+    backgroundColor: "#4CAF50",
+  },
+  footerPrimaryText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  footerSecondary: {
+    backgroundColor: "#f1f3f5",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  footerSecondaryText: {
+    color: "#2c3e50",
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  footerDanger: {
+    backgroundColor: "#e74c3c",
+  },
+  footerDangerText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
   },
   bottomSpacer: {
     height: 80,

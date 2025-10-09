@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   View,
   Text,
@@ -6,6 +7,8 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useHabits, Habit } from "../HabitContext";
@@ -13,9 +16,29 @@ import { Switch } from "react-native";
 
 export default function HabitDashboardScreen() {
   const router = useRouter();
-  const { habits, addHabit, deleteHabit, getCurrentStreak, updateHabit } =
-    useHabits();
+  const {
+    habits,
+    addHabit,
+    deleteHabit,
+    getCurrentStreak,
+    updateHabit,
+    testFastingNotifications,
+    testStreakNotifications,
+    ensureNotificationsEnabled,
+    getNotificationPermissions,
+  } = useHabits();
   const [showAddHabit, setShowAddHabit] = useState(false);
+  const [customName, setCustomName] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Recalculate and rerender when screen gains focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // bump key so derived values recompute visually
+      setRefreshKey((k) => k + 1);
+      return () => {};
+    }, [])
+  );
 
   // Default habits
   const defaultHabits = [
@@ -58,15 +81,18 @@ export default function HabitDashboardScreen() {
   };
 
   const handleDeleteHabit = (habit: Habit) => {
+    // Repurpose delete to mean "stop tracking" while preserving history
     Alert.alert(
-      "Delete Habit",
-      `Are you sure you want to delete "${habit.name}" tracking? This will remove all streak data.`,
+      "Stop Tracking",
+      `Stop tracking "${habit.name}"? You can resume later and all history will remain.`,
       [
         { text: "Cancel", style: "cancel" },
         {
-          text: "Delete",
+          text: "Stop",
           style: "destructive",
-          onPress: () => deleteHabit(habit.id),
+          onPress: async () => {
+            await updateHabit(habit.id, { isActive: false });
+          },
         },
       ]
     );
@@ -107,26 +133,66 @@ export default function HabitDashboardScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={{ width: 60 }} />
-        <Text style={styles.title}>Streaks & Fasting</Text>
+        <Text style={styles.title}>Streaks</Text>
         <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.content}>
+      <View style={styles.content} key={refreshKey}>
+        {/* Notifications banner (prompt) */}
+        <NotificationPrompt
+          ensureNotificationsEnabled={ensureNotificationsEnabled}
+          getNotificationPermissions={getNotificationPermissions}
+        />
+
+        {/* DEV: Notification test buttons */}
+        <View style={styles.devRow}>
+          <TouchableOpacity
+            style={styles.devButton}
+            onPress={() => testFastingNotifications()}
+          >
+            <Text style={styles.devButtonText}>Test Fasting Notifications</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.devButton,
+              { marginTop: 8, backgroundColor: "#e3f2fd" },
+            ]}
+            onPress={async () => {
+              const perm = await getNotificationPermissions();
+              alert(
+                `Notifications: ${perm.granted ? "GRANTED" : "DENIED"}$${
+                  perm.status ? `\nStatus: ${perm.status}` : ""
+                }`
+              );
+            }}
+          >
+            <Text style={[styles.devButtonText, { color: "#1976d2" }]}>
+              Check Notification Permissions
+            </Text>
+          </TouchableOpacity>
+        </View>
         {/* Active Habits */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Active Streaks</Text>
-          {!Array.isArray(habits) || habits.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No habits tracked yet</Text>
-              <Text style={styles.emptySubtext}>
-                Add a habit to start building healthy streaks!
-              </Text>
-            </View>
-          ) : (
-            habits.map((habit) => {
+          {(() => {
+            const active = (habits || []).filter((h) => h.isActive);
+            if (active.length === 0) {
+              return (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyText}>No active streaks</Text>
+                  <Text style={styles.emptySubtext}>
+                    Start a streak to begin tracking progress!
+                  </Text>
+                </View>
+              );
+            }
+            return active.map((habit) => {
               const streak = getCurrentStreak(habit.id);
               const streakMessage = getStreakMessage(streak, habit.name);
-              const healthMessage = getHealthMessage(streak, habit.type);
+              const healthMessage = getHealthMessage(
+                habit.type === "custom" ? 0 : streak,
+                habit.type
+              );
 
               return (
                 <View key={habit.id} style={styles.habitCard}>
@@ -182,10 +248,22 @@ export default function HabitDashboardScreen() {
                       📅 View Calendar
                     </Text>
                   </TouchableOpacity>
+                  {/* DEV: test streak notifications for this habit */}
+                  <TouchableOpacity
+                    style={[
+                      styles.calendarButton,
+                      { marginTop: 8, backgroundColor: "#6c757d" },
+                    ]}
+                    onPress={() => testStreakNotifications(habit.id)}
+                  >
+                    <Text style={styles.calendarButtonText}>
+                      ▶ Test Streak Notifications
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               );
-            })
-          )}
+            });
+          })()}
         </View>
 
         {/* Add Habits */}
@@ -227,13 +305,123 @@ export default function HabitDashboardScreen() {
             style={styles.customHabitButton}
             onPress={() => setShowAddHabit(true)}
           >
-            <Text style={styles.customHabitText}>+ Add Custom Habit</Text>
+            <Text style={styles.customHabitText}>+ Add Custom Streak</Text>
           </TouchableOpacity>
         </View>
+
+        <Modal visible={showAddHabit} transparent animationType="fade">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Create Custom Streak</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Streak name (e.g., No Gaming)"
+                value={customName}
+                onChangeText={setCustomName}
+                maxLength={32}
+              />
+              <View style={styles.modalRow}>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalCancel]}
+                  onPress={() => {
+                    setShowAddHabit(false);
+                    setCustomName("");
+                  }}
+                >
+                  <Text style={styles.modalCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.modalCreate]}
+                  onPress={async () => {
+                    const name = customName.trim();
+                    if (!name) {
+                      Alert.alert(
+                        "Name required",
+                        "Please enter a streak name."
+                      );
+                      return;
+                    }
+                    const customCount = (habits || []).filter(
+                      (h) => h.type === "custom"
+                    ).length;
+                    if (customCount >= 10) {
+                      Alert.alert(
+                        "Limit reached",
+                        "Maximum of 10 custom streaks reached."
+                      );
+                      return;
+                    }
+                    const palette = [
+                      "#1abc9c",
+                      "#2ecc71",
+                      "#3498db",
+                      "#9b59b6",
+                      "#f39c12",
+                      "#e74c3c",
+                      "#16a085",
+                      "#27ae60",
+                      "#2980b9",
+                      "#8e44ad",
+                    ];
+                    const color = palette[customCount % palette.length];
+                    await addHabit({
+                      name,
+                      type: "custom",
+                      startDate: new Date().toISOString(),
+                      isActive: true,
+                      color,
+                    } as any);
+                    setShowAddHabit(false);
+                    setCustomName("");
+                  }}
+                >
+                  <Text style={styles.modalCreateText}>Create</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScrollView>
   );
 }
+
+// Inline banner component prompting to enable notifications
+const NotificationPrompt: React.FC<{
+  ensureNotificationsEnabled: (interactive?: boolean) => Promise<boolean>;
+  getNotificationPermissions: () => Promise<{
+    granted: boolean;
+    canAskAgain?: boolean;
+    status?: string;
+  }>;
+}> = ({ ensureNotificationsEnabled, getNotificationPermissions }) => {
+  const [visible, setVisible] = React.useState(false);
+  useEffect(() => {
+    (async () => {
+      const perm = await getNotificationPermissions();
+      setVisible(!perm.granted);
+    })();
+  }, [getNotificationPermissions]);
+
+  if (!visible) return null;
+  return (
+    <View style={styles.noticeCard}>
+      <Text style={styles.noticeTitle}>Enable notifications</Text>
+      <Text style={styles.noticeText}>
+        Turn on notifications to get streak milestones and fasting reminders.
+      </Text>
+      <TouchableOpacity
+        style={styles.noticeButton}
+        onPress={async () => {
+          const ok = await ensureNotificationsEnabled(true);
+          if (ok) setVisible(false);
+        }}
+      >
+        <Text style={styles.noticeButtonText}>Enable</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -376,6 +564,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  devRow: {
+    marginBottom: 16,
+  },
+  devButton: {
+    backgroundColor: "#f0f0f0",
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+  },
+  devButtonText: {
+    color: "#2c3e50",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  noticeCard: {
+    backgroundColor: "#fff9db",
+    borderColor: "#ffe066",
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  noticeTitle: {
+    color: "#8d6e00",
+    fontSize: 14,
+    fontWeight: "700",
+    marginBottom: 4,
+  },
+  noticeText: {
+    color: "#8d6e00",
+    fontSize: 12,
+    marginBottom: 8,
+  },
+  noticeButton: {
+    alignSelf: "flex-start",
+    backgroundColor: "#f59f00",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  noticeButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   addHabitsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -428,6 +664,59 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#3498db",
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#2c3e50",
+    marginBottom: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  modalRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  modalBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  modalCancel: {
+    backgroundColor: "#f1f3f5",
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
+  },
+  modalCancelText: {
+    color: "#2c3e50",
+    fontWeight: "700",
+  },
+  modalCreate: {
+    backgroundColor: "#4CAF50",
+  },
+  modalCreateText: {
+    color: "#fff",
+    fontWeight: "700",
   },
   habitActions: {
     flexDirection: "row",

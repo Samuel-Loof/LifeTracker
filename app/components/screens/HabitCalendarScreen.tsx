@@ -352,6 +352,11 @@ export default function HabitCalendarScreen() {
                     });
                   }
                 }}
+                onLongPress={() => {
+                  if (isBlank) return;
+                  // Quick clear to 'none' on long-press
+                  setHabitDayStatus(habit.id, date, "none");
+                }}
               >
                 <Text style={styles.cellDay}>{label}</Text>
                 <Text style={[styles.cellStatus, { color: border }]}>
