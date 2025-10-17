@@ -104,7 +104,6 @@ export default function ScannerScreen() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Scan Food Barcode</Text>
-      {/* Pass our food processing function to the BarcodeScanner */}
       <BarcodeScanner onFoodScanned={handleFoodScanned} resetKey={resetKey} />
     </View>
   );
@@ -120,5 +119,11 @@ const styles = StyleSheet.create({
     textAlign: "center",
     margin: 20,
     color: "#2c3e50",
+  },
+  tempText: {
+    fontSize: 16,
+    textAlign: "center",
+    margin: 20,
+    color: "#7f8c8d",
   },
 });

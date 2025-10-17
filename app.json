@@ -22,7 +22,13 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "permissions": ["CAMERA"]
+      "permissions": [
+        "CAMERA",
+        "POST_NOTIFICATIONS",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "package": "com.discosam.LifeTrack3r"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -35,7 +41,15 @@
           "cameraPermission": "Allow LifeTrack3r to access your camera to scan food barcodes.",
           "microphonePermission": false
         }
-      ]
-    ]
+      ],
+      "expo-font",
+      "expo-notifications"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8e7a1398-81a2-4f6a-8731-cf14dbc77451"
+      }
+    }
   }
 }

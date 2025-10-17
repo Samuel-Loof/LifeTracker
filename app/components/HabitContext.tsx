@@ -156,6 +156,16 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
           Notifications.setNotificationChannelAsync
         ) {
           try {
+            // High-importance channel for visible pop-up notifications
+            await Notifications.setNotificationChannelAsync("high", {
+              name: "High Importance",
+              importance: Notifications.AndroidImportance.HIGH,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: "#FF231F7C",
+              sound: true,
+            });
+
+            // Keep default channel as fallback
             await Notifications.setNotificationChannelAsync("default", {
               name: "Default",
               importance: Notifications.AndroidImportance.DEFAULT,
@@ -169,7 +179,22 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         console.log("Current notification permissions:", settings);
 
         if (!settings.granted) {
-          const result = await Notifications.requestPermissionsAsync();
+          const result = await Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+              allowAnnouncements: true,
+            },
+            android: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+              allowVibrate: true,
+              allowShowWhenLocked: true,
+              allowDisplayOnLockScreen: true,
+            },
+          });
           console.log("Requested notification permissions:", result);
           if (!result.granted) {
             console.warn("Notification permissions denied by user");
@@ -621,7 +646,22 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (interactive) {
         if (settings.canAskAgain) {
-          const result = await Notifications.requestPermissionsAsync();
+          const result = await Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+              allowAnnouncements: true,
+            },
+            android: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+              allowVibrate: true,
+              allowShowWhenLocked: true,
+              allowDisplayOnLockScreen: true,
+            },
+          });
           if (result.granted) return true;
         }
         Alert.alert(
@@ -750,42 +790,80 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!settings.granted) {
         console.warn("Notifications not granted, requesting...");
-        const result = await Notifications.requestPermissionsAsync();
+
+        // Try different permission request approaches for Android
+        let result;
+
+        if (Platform.OS === "android") {
+          // For Android, try requesting without specific settings first
+          result = await Notifications.requestPermissionsAsync();
+          console.log("Android basic request result:", result);
+
+          if (!result.granted) {
+            // Try with Android-specific settings
+            result = await Notifications.requestPermissionsAsync({
+              android: {
+                allowAlert: true,
+                allowBadge: true,
+                allowSound: true,
+                allowVibrate: true,
+                allowShowWhenLocked: true,
+                allowDisplayOnLockScreen: true,
+              },
+            });
+            console.log("Android detailed request result:", result);
+          }
+        } else {
+          // iOS approach
+          result = await Notifications.requestPermissionsAsync({
+            ios: {
+              allowAlert: true,
+              allowBadge: true,
+              allowSound: true,
+              allowAnnouncements: true,
+            },
+          });
+        }
+
+        console.log("Final permission request result:", result);
+
         if (!result.granted) {
           console.error("Cannot test notifications - permissions denied");
+          Alert.alert(
+            "Notifications Required",
+            "Please enable notifications manually:\n\n1. Go to Settings > Apps > LifeTrack3r\n2. Tap 'Notifications'\n3. Turn ON 'Allow notifications'\n4. Make sure all notification types are enabled",
+            [
+              { text: "Cancel", style: "cancel" },
+              { text: "Open Settings", onPress: () => Linking.openSettings() },
+            ]
+          );
           return;
         }
       }
 
-      console.log("Scheduling test fasting notifications...");
+      // Clear any previously scheduled notifications to avoid multiple overlapping test toasts
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        console.log("Cleared previously scheduled notifications");
+      } catch {}
 
-      const id1 = await Notifications.scheduleNotificationAsync({
-        content: { title: "[TEST] Fasting started", body: "Now", sound: null },
-        trigger: { seconds: 2 },
-      });
-      console.log("Scheduled notification 1:", id1);
+      console.log(
+        "Scheduling single high-importance test notification (10s)..."
+      );
 
-      const id2 = await Notifications.scheduleNotificationAsync({
+      const id = await Notifications.scheduleNotificationAsync({
         content: {
-          title: "[TEST] Fasting ending soon",
-          body: "10s mark",
-          sound: null,
+          title: "[TEST] Notification",
+          body: "This should pop up visibly in ~10 seconds",
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
         },
-        trigger: { seconds: 10 },
-      });
-      console.log("Scheduled notification 2:", id2);
-
-      const id3 = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: "[TEST] Fasting complete",
-          body: "15s mark",
-          sound: null,
+        trigger: {
+          seconds: 10,
+          channelId: Platform.OS === "android" ? "high" : undefined,
         },
-        trigger: { seconds: 15 },
       });
-      console.log("Scheduled notification 3:", id3);
-
-      console.log("All test notifications scheduled successfully!");
+      console.log("Scheduled high-importance notification:", id);
     } catch (e) {
       console.error("testFastingNotifications failed:", e);
     }
@@ -813,15 +891,27 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      console.log(`Scheduling test streak notifications for ${habit.name}...`);
+      // Clear any previously scheduled test notifications
+      try {
+        await Notifications.cancelAllScheduledNotificationsAsync();
+        console.log("Cleared previously scheduled notifications (streak test)");
+      } catch {}
+
+      console.log(
+        `Scheduling delayed streak test notifications for ${habit.name}...`
+      );
 
       const id1 = await Notifications.scheduleNotificationAsync({
         content: {
           title: `[TEST] ${habit.name}: 1 day streak`,
           body: "Simulated",
-          sound: null,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
         },
-        trigger: { seconds: 2 },
+        trigger: {
+          seconds: 10,
+          channelId: Platform.OS === "android" ? "high" : undefined,
+        },
       });
       console.log("Scheduled streak notification 1:", id1);
 
@@ -829,9 +919,13 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         content: {
           title: `[TEST] ${habit.name}: 7 days streak`,
           body: "Simulated",
-          sound: null,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
         },
-        trigger: { seconds: 5 },
+        trigger: {
+          seconds: 20,
+          channelId: Platform.OS === "android" ? "high" : undefined,
+        },
       });
       console.log("Scheduled streak notification 2:", id2);
 
@@ -839,13 +933,17 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         content: {
           title: `[TEST] ${habit.name}: 30 days streak`,
           body: "Simulated",
-          sound: null,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.MAX,
         },
-        trigger: { seconds: 10 },
+        trigger: {
+          seconds: 30,
+          channelId: Platform.OS === "android" ? "high" : undefined,
+        },
       });
       console.log("Scheduled streak notification 3:", id3);
 
-      console.log("All test streak notifications scheduled successfully!");
+      console.log("All delayed streak notifications scheduled successfully!");
     } catch (e) {
       console.error("testStreakNotifications failed:", e);
     }

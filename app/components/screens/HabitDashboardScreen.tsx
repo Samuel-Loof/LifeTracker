@@ -150,7 +150,9 @@ export default function HabitDashboardScreen() {
             style={styles.devButton}
             onPress={() => testFastingNotifications()}
           >
-            <Text style={styles.devButtonText}>Test Fasting Notifications</Text>
+            <Text style={styles.devButtonText}>
+              Test Fasting Notifications!
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
