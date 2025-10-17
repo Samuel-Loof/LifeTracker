@@ -144,8 +144,8 @@ export default function HabitDashboardScreen() {
           getNotificationPermissions={getNotificationPermissions}
         />
 
-        {/* DEV: Notification test buttons */}
-        <View style={styles.devRow}>
+        {/* DEV: Notification test buttons - Commented out for alpha release */}
+        {/* <View style={styles.devRow}>
           <TouchableOpacity
             style={styles.devButton}
             onPress={() => testFastingNotifications()}
@@ -172,7 +172,7 @@ export default function HabitDashboardScreen() {
               Check Notification Permissions
             </Text>
           </TouchableOpacity>
-        </View>
+        </View> */}
         {/* Active Habits */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Active Streaks</Text>

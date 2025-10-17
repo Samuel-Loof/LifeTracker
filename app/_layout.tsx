@@ -49,6 +49,10 @@ export default function RootLayout() {
             name="components/screens/FastingScreen"
             options={{ title: "Fasting" }}
           />
+          <Stack.Screen
+            name="components/screens/SupplementReminderScreen"
+            options={{ title: "Supplement Reminders" }}
+          />
         </Stack>
       </HabitProvider>
     </FoodProvider>

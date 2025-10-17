@@ -56,6 +56,14 @@ export interface FastingSession {
   notes?: string;
 }
 
+export interface SupplementReminder {
+  id: string;
+  name: string;
+  time: string; // HH:MM format
+  isActive: boolean;
+  isCustom: boolean;
+}
+
 export interface HabitContextType {
   // Habits
   habits: Habit[];
@@ -100,6 +108,14 @@ export interface HabitContextType {
     canAskAgain?: boolean;
     status?: string;
   }>;
+
+  // Supplement Reminders
+  supplementReminders: SupplementReminder[];
+  addSupplementReminder: (
+    reminder: Omit<SupplementReminder, "id">
+  ) => Promise<void>;
+  updateSupplementReminder: (reminder: SupplementReminder) => Promise<void>;
+  deleteSupplementReminder: (id: string) => Promise<void>;
 }
 
 // Create context
@@ -120,6 +136,9 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     notifications: true,
   });
   const [fastingSessions, setFastingSessions] = useState<FastingSession[]>([]);
+  const [supplementReminders, setSupplementReminders] = useState<
+    SupplementReminder[]
+  >([]);
   const [appState, setAppState] = useState<string>(AppState.currentState);
 
   // Load data from AsyncStorage on mount
@@ -208,13 +227,19 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const loadData = async () => {
     try {
-      const [habitsData, entriesData, fastingData, sessionsData] =
-        await Promise.all([
-          AsyncStorage.getItem("habits"),
-          AsyncStorage.getItem("habitEntries"),
-          AsyncStorage.getItem("fastingSettings"),
-          AsyncStorage.getItem("fastingSessions"),
-        ]);
+      const [
+        habitsData,
+        entriesData,
+        fastingData,
+        sessionsData,
+        supplementsData,
+      ] = await Promise.all([
+        AsyncStorage.getItem("habits"),
+        AsyncStorage.getItem("habitEntries"),
+        AsyncStorage.getItem("fastingSettings"),
+        AsyncStorage.getItem("fastingSessions"),
+        AsyncStorage.getItem("supplementReminders"),
+      ]);
 
       if (habitsData) {
         try {
@@ -237,6 +262,14 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       if (sessionsData) {
         setFastingSessions(JSON.parse(sessionsData));
+      }
+      if (supplementsData) {
+        try {
+          const parsed = JSON.parse(supplementsData);
+          setSupplementReminders(Array.isArray(parsed) ? parsed : []);
+        } catch {
+          setSupplementReminders([]);
+        }
       }
     } catch (error) {
       console.error("Error loading habit data:", error);
@@ -994,6 +1027,43 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     await writeNotificationStore(fastingNotificationStoreKey, map);
   };
 
+  // Supplement Reminder functions
+  const addSupplementReminder = async (
+    reminderData: Omit<SupplementReminder, "id">
+  ) => {
+    const newReminder: SupplementReminder = {
+      ...reminderData,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
+
+    const updatedReminders = [...supplementReminders, newReminder];
+    setSupplementReminders(updatedReminders);
+    await AsyncStorage.setItem(
+      "supplementReminders",
+      JSON.stringify(updatedReminders)
+    );
+  };
+
+  const updateSupplementReminder = async (reminder: SupplementReminder) => {
+    const updatedReminders = supplementReminders.map((r) =>
+      r.id === reminder.id ? reminder : r
+    );
+    setSupplementReminders(updatedReminders);
+    await AsyncStorage.setItem(
+      "supplementReminders",
+      JSON.stringify(updatedReminders)
+    );
+  };
+
+  const deleteSupplementReminder = async (id: string) => {
+    const updatedReminders = supplementReminders.filter((r) => r.id !== id);
+    setSupplementReminders(updatedReminders);
+    await AsyncStorage.setItem(
+      "supplementReminders",
+      JSON.stringify(updatedReminders)
+    );
+  };
+
   const value: HabitContextType = {
     habits,
     habitEntries,
@@ -1019,6 +1089,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     testStreakNotifications,
     ensureNotificationsEnabled,
     getNotificationPermissions,
+    supplementReminders,
+    addSupplementReminder,
+    updateSupplementReminder,
+    deleteSupplementReminder,
   };
 
   return (

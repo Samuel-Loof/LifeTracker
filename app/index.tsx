@@ -812,6 +812,24 @@ export default function HomeScreen() {
                     </Text>
                   </View>
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setShowNavModal(false);
+                    router.push("/components/screens/SupplementReminderScreen");
+                  }}
+                >
+                  <Text style={styles.modalOptionIcon}>💊</Text>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>
+                      Supplement Reminders
+                    </Text>
+                    <Text style={styles.modalOptionSubtitle}>
+                      Set reminders for vitamins and supplements
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               </View>
             </TouchableWithoutFeedback>
           </View>
