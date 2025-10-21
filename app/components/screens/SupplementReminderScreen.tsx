@@ -42,16 +42,32 @@ export default function SupplementReminderScreen() {
   const [selectedTime, setSelectedTime] = useState(new Date());
   const [customName, setCustomName] = useState("");
   const [isAddingCustom, setIsAddingCustom] = useState(false);
+  const [use24HourFormat, setUse24HourFormat] = useState(false);
 
   const formatTime = (timeString: string): string => {
     const [hours, minutes] = timeString.split(":");
     const hour = parseInt(hours);
-    const ampm = hour >= 12 ? "PM" : "AM";
-    const displayHour = hour % 12 || 12;
-    return `${displayHour}:${minutes} ${ampm}`;
+
+    if (use24HourFormat) {
+      return `${hours}:${minutes}`;
+    } else {
+      const ampm = hour >= 12 ? "PM" : "AM";
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${minutes} ${ampm}`;
+    }
   };
 
-  const handleAddDefaultSupplement = async (supplementName: string) => {
+  const [selectedSupplement, setSelectedSupplement] = useState<string>("");
+  const [showTimeConfirmation, setShowTimeConfirmation] = useState(false);
+
+  const handleSelectSupplement = (supplementName: string) => {
+    setSelectedSupplement(supplementName);
+    setShowTimePicker(true);
+  };
+
+  const handleAddDefaultSupplement = async () => {
+    if (!selectedSupplement) return;
+
     const timeString = `${selectedTime
       .getHours()
       .toString()
@@ -62,7 +78,7 @@ export default function SupplementReminderScreen() {
 
     const reminder: SupplementReminder = {
       id: Date.now().toString(),
-      name: supplementName,
+      name: selectedSupplement,
       time: timeString,
       isActive: true,
       isCustom: false,
@@ -70,7 +86,9 @@ export default function SupplementReminderScreen() {
 
     await addSupplementReminder(reminder);
     setShowAddModal(false);
+    setShowTimePicker(false);
     setSelectedTime(new Date());
+    setSelectedSupplement("");
   };
 
   const handleAddCustomSupplement = async () => {
@@ -79,6 +97,13 @@ export default function SupplementReminderScreen() {
       return;
     }
 
+    setSelectedSupplement(customName.trim());
+    setShowTimePicker(true);
+  };
+
+  const handleAddCustomSupplementWithTime = async () => {
+    if (!selectedSupplement) return;
+
     const timeString = `${selectedTime
       .getHours()
       .toString()
@@ -89,7 +114,7 @@ export default function SupplementReminderScreen() {
 
     const reminder: SupplementReminder = {
       id: Date.now().toString(),
-      name: customName.trim(),
+      name: selectedSupplement,
       time: timeString,
       isActive: true,
       isCustom: true,
@@ -97,9 +122,11 @@ export default function SupplementReminderScreen() {
 
     await addSupplementReminder(reminder);
     setShowAddModal(false);
-    setCustomName("");
-    setIsAddingCustom(false);
+    setShowTimePicker(false);
     setSelectedTime(new Date());
+    setCustomName("");
+    setSelectedSupplement("");
+    setIsAddingCustom(false);
   };
 
   const handleToggleReminder = async (reminder: SupplementReminder) => {
@@ -126,14 +153,16 @@ export default function SupplementReminderScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Supplement Reminders</Text>
         <View style={{ width: 40 }} />
+        <Text style={styles.headerTitle}>Supplement Reminders</Text>
+        <TouchableOpacity
+          style={styles.timeFormatToggle}
+          onPress={() => setUse24HourFormat(!use24HourFormat)}
+        >
+          <Text style={styles.timeFormatText}>
+            {use24HourFormat ? "24h" : "12h"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content}>
@@ -235,7 +264,7 @@ export default function SupplementReminderScreen() {
                   <TouchableOpacity
                     key={supplement.name}
                     style={styles.supplementOption}
-                    onPress={() => handleAddDefaultSupplement(supplement.name)}
+                    onPress={() => handleSelectSupplement(supplement.name)}
                   >
                     <Text style={styles.supplementOptionText}>
                       {supplement.name}
@@ -244,27 +273,6 @@ export default function SupplementReminderScreen() {
                 ))}
               </View>
             )}
-
-            <View style={styles.timeContainer}>
-              <Text style={styles.inputLabel}>Reminder Time</Text>
-              <TouchableOpacity
-                style={styles.timeButton}
-                onPress={() => setShowTimePicker(true)}
-              >
-                <Text style={styles.timeButtonText}>
-                  {formatTime(
-                    `${selectedTime
-                      .getHours()
-                      .toString()
-                      .padStart(2, "0")}:${selectedTime
-                      .getMinutes()
-                      .toString()
-                      .padStart(2, "0")}`
-                  )}
-                </Text>
-                <Text style={styles.timeButtonArrow}>🕐</Text>
-              </TouchableOpacity>
-            </View>
 
             <View style={styles.modalActions}>
               {!isAddingCustom && (
@@ -288,17 +296,68 @@ export default function SupplementReminderScreen() {
             </View>
 
             {showTimePicker && (
-              <DateTimePicker
-                value={selectedTime}
-                mode="time"
-                display="default"
-                onChange={(event, selectedTime) => {
-                  setShowTimePicker(false);
-                  if (selectedTime) {
-                    setSelectedTime(selectedTime);
-                  }
-                }}
-              />
+              <View style={styles.timePickerContainer}>
+                <Text style={styles.timePickerTitle}>
+                  Set reminder time for {selectedSupplement}
+                </Text>
+                <DateTimePicker
+                  value={selectedTime}
+                  mode="time"
+                  display="default"
+                  onChange={(event, selectedTime) => {
+                    setShowTimePicker(false);
+                    if (event.type === "set" && selectedTime) {
+                      setSelectedTime(selectedTime);
+                      setShowTimeConfirmation(true);
+                    }
+                    // If user pressed "Cancel", just close without showing confirmation
+                  }}
+                />
+              </View>
+            )}
+
+            {showTimeConfirmation && (
+              <View style={styles.timeConfirmationContainer}>
+                <Text style={styles.confirmationTitle}>Confirm Reminder</Text>
+                <Text style={styles.confirmationText}>
+                  Add reminder for {selectedSupplement} at{" "}
+                  {formatTime(
+                    `${selectedTime
+                      .getHours()
+                      .toString()
+                      .padStart(2, "0")}:${selectedTime
+                      .getMinutes()
+                      .toString()
+                      .padStart(2, "0")}`
+                  )}
+                  ?
+                </Text>
+                <View style={styles.timePickerButtons}>
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={() => {
+                      setShowTimeConfirmation(false);
+                      setSelectedSupplement("");
+                      if (isAddingCustom) {
+                        setIsAddingCustom(false);
+                        setCustomName("");
+                      }
+                    }}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.confirmButton}
+                    onPress={
+                      isAddingCustom
+                        ? handleAddCustomSupplementWithTime
+                        : handleAddDefaultSupplement
+                    }
+                  >
+                    <Text style={styles.confirmButtonText}>Add Reminder</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
             )}
           </View>
         </View>
@@ -322,18 +381,19 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  backButtonText: {
-    fontSize: 24,
-    color: "#2c3e50",
-  },
   headerTitle: {
     fontSize: 18,
+    fontWeight: "600",
+    color: "#2c3e50",
+  },
+  timeFormatToggle: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 16,
+  },
+  timeFormatText: {
+    fontSize: 12,
     fontWeight: "600",
     color: "#2c3e50",
   },
@@ -544,5 +604,71 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 14,
     fontWeight: "600",
+  },
+  timePickerContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  timePickerTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#2c3e50",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  timePickerButtons: {
+    flexDirection: "row",
+    marginTop: 20,
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: "#f8f9fa",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  cancelButtonText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "600",
+  },
+  confirmButton: {
+    flex: 1,
+    backgroundColor: "#2c3e50",
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  confirmButtonText: {
+    color: "white",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  timeConfirmationContainer: {
+    backgroundColor: "white",
+    borderRadius: 12,
+    padding: 20,
+    marginTop: 20,
+    alignItems: "center",
+  },
+  confirmationTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#2c3e50",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  confirmationText: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 20,
+    textAlign: "center",
+    lineHeight: 22,
   },
 });

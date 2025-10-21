@@ -576,39 +576,6 @@ export default function HomeScreen() {
         <TouchableOpacity
           style={styles.calendarButton}
           onPress={() => setShowNavModal(true)}
-          onLongPress={() => {
-            // Open quick options modal for Streaks or Fasting
-            const options = [
-              "Streaks (My Progress)",
-              "Fasting",
-              "Cancel",
-            ] as const;
-            // Basic inline modal replacement using Alert for now
-            try {
-              // Lazy import Alert to keep existing imports minimal
-              const { Alert } = require("react-native");
-              Alert.alert(
-                "Open",
-                "Where do you want to go?",
-                [
-                  {
-                    text: options[0],
-                    onPress: () =>
-                      router.push("/components/screens/HabitDashboardScreen"),
-                  },
-                  {
-                    text: options[1],
-                    onPress: () =>
-                      router.push("/components/screens/FastingScreen"),
-                  },
-                  { text: options[2], style: "cancel" },
-                ],
-                { cancelable: true }
-              );
-            } catch (e) {
-              router.push("/components/screens/HabitDashboardScreen");
-            }
-          }}
         >
           <Text style={styles.calendarIcon}>📅</Text>
         </TouchableOpacity>
@@ -827,6 +794,22 @@ export default function HomeScreen() {
                     </Text>
                     <Text style={styles.modalOptionSubtitle}>
                       Set reminders for vitamins and supplements
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.modalOption}
+                  onPress={() => {
+                    setShowNavModal(false);
+                    router.push("/components/screens/TodoListScreen");
+                  }}
+                >
+                  <Text style={styles.modalOptionIcon}>📝</Text>
+                  <View style={styles.modalOptionText}>
+                    <Text style={styles.modalOptionTitle}>To-Do List</Text>
+                    <Text style={styles.modalOptionSubtitle}>
+                      Track your daily tasks and stay productive
                     </Text>
                   </View>
                 </TouchableOpacity>

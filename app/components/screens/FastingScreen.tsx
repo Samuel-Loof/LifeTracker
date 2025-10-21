@@ -217,6 +217,48 @@ export default function FastingScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+
+              {/* Notification Settings */}
+              <View style={styles.settingRow}>
+                <Text style={styles.scheduleLabel}>Notifications:</Text>
+                <TouchableOpacity
+                  style={styles.toggleButton}
+                  onPress={() =>
+                    setLocalSettings((prev) => ({
+                      ...prev,
+                      notifications: !prev.notifications,
+                    }))
+                  }
+                >
+                  <Text
+                    style={[
+                      styles.toggleText,
+                      {
+                        color: localSettings.notifications ? "#4CAF50" : "#666",
+                      },
+                    ]}
+                  >
+                    {localSettings.notifications ? "ON" : "OFF"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {localSettings.notifications && (
+                <View style={styles.settingRow}>
+                  <Text style={styles.scheduleLabel}>Notification Time:</Text>
+                  <TouchableOpacity
+                    style={styles.timeButton}
+                    onPress={() => {
+                      // You can add time picker here if needed
+                      // For now, just show the current time
+                    }}
+                  >
+                    <Text style={styles.timeButtonText}>
+                      {localSettings.notificationTime}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -544,6 +586,24 @@ const styles = StyleSheet.create({
   toggleText: {
     fontSize: 14,
     fontWeight: "600",
+  },
+  timeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#ddd",
+  },
+  timeButtonText: {
+    fontSize: 14,
+    color: "#2c3e50",
+  },
+  settingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
   },
   fastingTypesGrid: {
     flexDirection: "row",

@@ -53,6 +53,14 @@ export default function RootLayout() {
             name="components/screens/SupplementReminderScreen"
             options={{ title: "Supplement Reminders" }}
           />
+          <Stack.Screen
+            name="components/screens/StreakNotificationSettingsScreen"
+            options={{ title: "Streak Notifications" }}
+          />
+          <Stack.Screen
+            name="components/screens/TodoListScreen"
+            options={{ title: "To-Do List" }}
+          />
         </Stack>
       </HabitProvider>
     </FoodProvider>

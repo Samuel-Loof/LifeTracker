@@ -134,7 +134,14 @@ export default function HabitDashboardScreen() {
       <View style={styles.header}>
         <View style={{ width: 60 }} />
         <Text style={styles.title}>Streaks</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          style={styles.settingsButton}
+          onPress={() =>
+            router.push("/components/screens/StreakNotificationSettingsScreen")
+          }
+        >
+          <Text style={styles.settingsButtonText}>⚙️</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={styles.content} key={refreshKey}>
@@ -451,6 +458,15 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#2c3e50",
     letterSpacing: 0.5,
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  settingsButtonText: {
+    fontSize: 20,
   },
   fastingButton: {
     width: 40,

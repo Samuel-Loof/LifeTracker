@@ -45,6 +45,7 @@ export interface FastingSettings {
   startTime: string; // HH:MM format
   isActive: boolean;
   notifications: boolean;
+  notificationTime: string; // HH:MM format for when to send fasting reminders
 }
 
 export interface FastingSession {
@@ -62,6 +63,20 @@ export interface SupplementReminder {
   time: string; // HH:MM format
   isActive: boolean;
   isCustom: boolean;
+}
+
+export interface StreakNotificationSettings {
+  enabled: boolean;
+  time: string; // HH:MM format
+  milestones: number[]; // Which streak milestones to notify about (e.g., [3, 7, 14, 30])
+}
+
+export interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  createdAt: string; // ISO date string
+  completedAt?: string; // ISO date string
 }
 
 export interface HabitContextType {
@@ -95,6 +110,12 @@ export interface HabitContextType {
   endFastingSession: () => Promise<void>;
   getCurrentFastingSession: () => FastingSession | null;
 
+  // Streak Notifications
+  streakNotificationSettings: StreakNotificationSettings;
+  updateStreakNotificationSettings: (
+    settings: Partial<StreakNotificationSettings>
+  ) => Promise<void>;
+
   // Notifications
   scheduleHabitNotification: (habitId: string, days: number) => Promise<void>;
   cancelHabitNotification: (habitId: string) => Promise<void>;
@@ -116,6 +137,16 @@ export interface HabitContextType {
   ) => Promise<void>;
   updateSupplementReminder: (reminder: SupplementReminder) => Promise<void>;
   deleteSupplementReminder: (id: string) => Promise<void>;
+  scheduleSupplementNotification: (
+    reminder: SupplementReminder
+  ) => Promise<void>;
+  cancelSupplementNotification: (reminderId: string) => Promise<void>;
+
+  // Todos
+  todos: Todo[];
+  addTodo: (todo: Omit<Todo, "id">) => Promise<void>;
+  updateTodo: (todo: Todo) => Promise<void>;
+  deleteTodo: (id: string) => Promise<void>;
 }
 
 // Create context
@@ -134,11 +165,19 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     startTime: "20:00",
     isActive: false,
     notifications: true,
+    notificationTime: "09:00",
   });
+  const [streakNotificationSettings, setStreakNotificationSettings] =
+    useState<StreakNotificationSettings>({
+      enabled: true,
+      time: "20:00",
+      milestones: [3, 7, 14, 30, 60, 90],
+    });
   const [fastingSessions, setFastingSessions] = useState<FastingSession[]>([]);
   const [supplementReminders, setSupplementReminders] = useState<
     SupplementReminder[]
   >([]);
+  const [todos, setTodos] = useState<Todo[]>([]);
   const [appState, setAppState] = useState<string>(AppState.currentState);
 
   // Load data from AsyncStorage on mount
@@ -178,6 +217,15 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
             // High-importance channel for visible pop-up notifications
             await Notifications.setNotificationChannelAsync("high", {
               name: "High Importance",
+              importance: Notifications.AndroidImportance.HIGH,
+              vibrationPattern: [0, 250, 250, 250],
+              lightColor: "#FF231F7C",
+              sound: true,
+            });
+
+            // Supplements channel
+            await Notifications.setNotificationChannelAsync("supplements", {
+              name: "Supplement Reminders",
               importance: Notifications.AndroidImportance.HIGH,
               vibrationPattern: [0, 250, 250, 250],
               lightColor: "#FF231F7C",
@@ -233,12 +281,16 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         fastingData,
         sessionsData,
         supplementsData,
+        streakNotificationData,
+        todosData,
       ] = await Promise.all([
         AsyncStorage.getItem("habits"),
         AsyncStorage.getItem("habitEntries"),
         AsyncStorage.getItem("fastingSettings"),
         AsyncStorage.getItem("fastingSessions"),
         AsyncStorage.getItem("supplementReminders"),
+        AsyncStorage.getItem("streakNotificationSettings"),
+        AsyncStorage.getItem("todos"),
       ]);
 
       if (habitsData) {
@@ -269,6 +321,22 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
           setSupplementReminders(Array.isArray(parsed) ? parsed : []);
         } catch {
           setSupplementReminders([]);
+        }
+      }
+      if (streakNotificationData) {
+        try {
+          const parsed = JSON.parse(streakNotificationData);
+          setStreakNotificationSettings(parsed);
+        } catch {
+          // Keep default settings
+        }
+      }
+      if (todosData) {
+        try {
+          const parsed = JSON.parse(todosData);
+          setTodos(Array.isArray(parsed) ? parsed : []);
+        } catch {
+          setTodos([]);
         }
       }
     } catch (error) {
@@ -557,6 +625,21 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       const updated = { ...prev, ...settings };
       AsyncStorage.setItem("fastingSettings", JSON.stringify(updated)).catch(
         (error) => console.error("Error saving fasting settings:", error)
+      );
+      return updated;
+    });
+  };
+
+  const updateStreakNotificationSettings = async (
+    settings: Partial<StreakNotificationSettings>
+  ) => {
+    setStreakNotificationSettings((prev) => {
+      const updated = { ...prev, ...settings };
+      AsyncStorage.setItem(
+        "streakNotificationSettings",
+        JSON.stringify(updated)
+      ).catch((error) =>
+        console.error("Error saving streak notification settings:", error)
       );
       return updated;
     });
@@ -893,7 +976,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         },
         trigger: {
           seconds: 10,
-          channelId: Platform.OS === "android" ? "high" : undefined,
         },
       });
       console.log("Scheduled high-importance notification:", id);
@@ -1042,9 +1124,15 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       "supplementReminders",
       JSON.stringify(updatedReminders)
     );
+
+    // Schedule notification if active
+    if (newReminder.isActive) {
+      await scheduleSupplementNotification(newReminder);
+    }
   };
 
   const updateSupplementReminder = async (reminder: SupplementReminder) => {
+    const oldReminder = supplementReminders.find((r) => r.id === reminder.id);
     const updatedReminders = supplementReminders.map((r) =>
       r.id === reminder.id ? reminder : r
     );
@@ -1053,15 +1141,109 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       "supplementReminders",
       JSON.stringify(updatedReminders)
     );
+
+    // Handle notification scheduling/canceling
+    if (oldReminder?.isActive && !reminder.isActive) {
+      // Was active, now inactive - cancel notification
+      await cancelSupplementNotification(reminder.id);
+    } else if (!oldReminder?.isActive && reminder.isActive) {
+      // Was inactive, now active - schedule notification
+      await scheduleSupplementNotification(reminder);
+    } else if (reminder.isActive && oldReminder?.time !== reminder.time) {
+      // Time changed - cancel old and schedule new
+      await cancelSupplementNotification(reminder.id);
+      await scheduleSupplementNotification(reminder);
+    }
   };
 
   const deleteSupplementReminder = async (id: string) => {
+    // Cancel notification before deleting
+    await cancelSupplementNotification(id);
+
     const updatedReminders = supplementReminders.filter((r) => r.id !== id);
     setSupplementReminders(updatedReminders);
     await AsyncStorage.setItem(
       "supplementReminders",
       JSON.stringify(updatedReminders)
     );
+  };
+
+  const scheduleSupplementNotification = async (
+    reminder: SupplementReminder
+  ) => {
+    try {
+      if (!reminder.isActive) return;
+
+      const [hours, minutes] = reminder.time.split(":").map(Number);
+      const now = new Date();
+      const scheduledTime = new Date();
+      scheduledTime.setHours(hours, minutes, 0, 0);
+
+      // If the time has already passed today, schedule for tomorrow
+      if (scheduledTime <= now) {
+        scheduledTime.setDate(scheduledTime.getDate() + 1);
+      }
+
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "💊 Supplement Reminder",
+          body: `Time to take your ${reminder.name}!`,
+          sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
+        },
+        trigger: scheduledTime,
+      });
+
+      // Store notification ID for potential cancellation
+      await appendNotificationId(
+        "supplementNotifications",
+        reminder.id,
+        notificationId
+      );
+    } catch (error) {
+      console.error("Error scheduling supplement notification:", error);
+    }
+  };
+
+  const cancelSupplementNotification = async (reminderId: string) => {
+    try {
+      const map = await readNotificationStore("supplementNotifications");
+      const notificationIds = map[reminderId] || [];
+
+      for (const id of notificationIds) {
+        await Notifications.cancelScheduledNotificationAsync(id);
+      }
+
+      // Clear the stored IDs
+      delete map[reminderId];
+      await writeNotificationStore("supplementNotifications", map);
+    } catch (error) {
+      console.error("Error canceling supplement notification:", error);
+    }
+  };
+
+  // Todo functions
+  const addTodo = async (todoData: Omit<Todo, "id">) => {
+    const newTodo: Todo = {
+      ...todoData,
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    };
+
+    const updatedTodos = [...todos, newTodo];
+    setTodos(updatedTodos);
+    await AsyncStorage.setItem("todos", JSON.stringify(updatedTodos));
+  };
+
+  const updateTodo = async (todo: Todo) => {
+    const updatedTodos = todos.map((t) => (t.id === todo.id ? todo : t));
+    setTodos(updatedTodos);
+    await AsyncStorage.setItem("todos", JSON.stringify(updatedTodos));
+  };
+
+  const deleteTodo = async (id: string) => {
+    const updatedTodos = todos.filter((t) => t.id !== id);
+    setTodos(updatedTodos);
+    await AsyncStorage.setItem("todos", JSON.stringify(updatedTodos));
   };
 
   const value: HabitContextType = {
@@ -1083,6 +1265,8 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     startFastingSession,
     endFastingSession,
     getCurrentFastingSession,
+    streakNotificationSettings,
+    updateStreakNotificationSettings,
     scheduleHabitNotification,
     cancelHabitNotification,
     testFastingNotifications,
@@ -1093,6 +1277,12 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     addSupplementReminder,
     updateSupplementReminder,
     deleteSupplementReminder,
+    scheduleSupplementNotification,
+    cancelSupplementNotification,
+    todos,
+    addTodo,
+    updateTodo,
+    deleteTodo,
   };
 
   return (
