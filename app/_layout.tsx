@@ -61,6 +61,10 @@ export default function RootLayout() {
             name="components/screens/TodoListScreen"
             options={{ title: "To-Do List" }}
           />
+          <Stack.Screen
+            name="components/screens/AddExerciseScreen"
+            options={{ title: "Exercise" }}
+          />
         </Stack>
       </HabitProvider>
     </FoodProvider>
