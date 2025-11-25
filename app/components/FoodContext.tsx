@@ -63,15 +63,6 @@ export interface WaterIntake {
   timestamp: Date;
 }
 
-export interface Exercise {
-  id: string;
-  name: string;
-  caloriesBurned: number;
-  duration?: number; // in minutes
-  timestamp: Date;
-  isFromAPI?: boolean; // true if from Nutritionix API
-}
-
 export interface Recipe {
   id: string;
   name: string;
@@ -200,13 +191,6 @@ interface FoodContextType {
   addWaterIntakeForDate: (amount: number, date: Date) => void;
   removeWaterIntakeByAmountForDate: (amount: number, date: Date) => void;
   getWaterIntakeForDate: (date: Date) => number;
-
-  // Exercise tracking
-  exercises: Exercise[];
-  addExercise: (exercise: Exercise) => void;
-  removeExercise: (exerciseId: string) => void;
-  getExercisesForDate: (date: Date) => Exercise[];
-  getTotalCaloriesBurnedForDate: (date: Date) => number;
 }
 
 // Create context
@@ -252,7 +236,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     containerType: "glass", // 0.25L default
   });
   const [waterIntakes, setWaterIntakes] = useState<WaterIntake[]>([]);
-  const [exercises, setExercises] = useState<Exercise[]>([]);
 
   useEffect(() => {
     loadDailyFoods();
@@ -262,7 +245,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     loadFasting();
     loadWaterSettings();
     loadWaterIntakes();
-    loadExercises();
   }, []);
 
   const loadDailyFoods = async () => {
@@ -702,68 +684,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
 
   const getTodayWaterIntake = () => getWaterIntakeForDate(new Date());
 
-  // Exercise tracking functions
-  const loadExercises = async () => {
-    try {
-      const stored = await AsyncStorage.getItem("exercises");
-      if (stored) {
-        const parsedExercises = JSON.parse(stored);
-        // Convert timestamp strings back to Date objects
-        const exercisesWithDates = parsedExercises.map((exercise: any) => ({
-          ...exercise,
-          timestamp: new Date(exercise.timestamp),
-        }));
-        setExercises(exercisesWithDates);
-      }
-    } catch (error) {
-      console.error("Error loading exercises:", error);
-    }
-  };
-
-  const addExercise = (exercise: Exercise) => {
-    setExercises((prev) => {
-      const updated = [...prev, exercise];
-      // Save to AsyncStorage asynchronously
-      AsyncStorage.setItem("exercises", JSON.stringify(updated)).catch(
-        (error) => {
-          console.error("Error saving exercises:", error);
-        }
-      );
-      return updated;
-    });
-  };
-
-  const removeExercise = (exerciseId: string) => {
-    setExercises((prev) => {
-      const updated = prev.filter((exercise) => exercise.id !== exerciseId);
-      // Save to AsyncStorage asynchronously
-      AsyncStorage.setItem("exercises", JSON.stringify(updated)).catch(
-        (error) => {
-          console.error("Error saving exercises:", error);
-        }
-      );
-      return updated;
-    });
-  };
-
-  const getExercisesForDate = (date: Date) => {
-    const start = new Date(date);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(start);
-    end.setDate(end.getDate() + 1);
-    return exercises.filter((exercise) => {
-      const d = new Date(exercise.timestamp);
-      return d >= start && d < end;
-    });
-  };
-
-  const getTotalCaloriesBurnedForDate = (date: Date) => {
-    return getExercisesForDate(date).reduce(
-      (sum, exercise) => sum + exercise.caloriesBurned,
-      0
-    );
-  };
-
   // Recipe management functions
   const addRecipe = async (recipe: Recipe) => {
     const updated = [...recipes, recipe];
@@ -852,11 +772,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         removeWaterIntakeByAmountForDate,
         getTodayWaterIntake,
         getWaterIntakeForDate,
-        exercises,
-        addExercise,
-        removeExercise,
-        getExercisesForDate,
-        getTotalCaloriesBurnedForDate,
       }}
     >
       {children}

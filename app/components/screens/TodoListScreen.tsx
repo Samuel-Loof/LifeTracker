@@ -8,8 +8,6 @@ import {
   TextInput,
   Alert,
   Modal,
-  KeyboardAvoidingView,
-  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useHabits } from "../HabitContext";
@@ -163,24 +161,21 @@ export default function TodoListScreen() {
             todayTodos.map((todo) => (
               <View key={todo.id} style={styles.todoItem}>
                 <TouchableOpacity
-                  style={styles.todoContent}
+                  style={styles.checkbox}
                   onPress={() => handleToggleTodo(todo)}
-                  activeOpacity={0.7}
                 >
-                  <View style={styles.checkbox}>
-                    <Text style={styles.checkboxText}>
-                      {todo.completed ? "✓" : ""}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.todoText,
-                      todo.completed && styles.todoTextCompleted,
-                    ]}
-                  >
-                    {todo.text}
+                  <Text style={styles.checkboxText}>
+                    {todo.completed ? "✓" : ""}
                   </Text>
                 </TouchableOpacity>
+                <Text
+                  style={[
+                    styles.todoText,
+                    todo.completed && styles.todoTextCompleted,
+                  ]}
+                >
+                  {todo.text}
+                </Text>
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => handleDeleteTodo(todo)}
@@ -203,24 +198,21 @@ export default function TodoListScreen() {
               .map((todo) => (
                 <View key={todo.id} style={styles.todoItem}>
                   <TouchableOpacity
-                    style={styles.todoContent}
+                    style={styles.checkbox}
                     onPress={() => handleToggleTodo(todo)}
-                    activeOpacity={0.7}
                   >
-                    <View style={styles.checkbox}>
-                      <Text style={styles.checkboxText}>
-                        {todo.completed ? "✓" : ""}
-                      </Text>
-                    </View>
-                    <Text
-                      style={[
-                        styles.todoText,
-                        todo.completed && styles.todoTextCompleted,
-                      ]}
-                    >
-                      {todo.text}
+                    <Text style={styles.checkboxText}>
+                      {todo.completed ? "✓" : ""}
                     </Text>
                   </TouchableOpacity>
+                  <Text
+                    style={[
+                      styles.todoText,
+                      todo.completed && styles.todoTextCompleted,
+                    ]}
+                  >
+                    {todo.text}
+                  </Text>
                   <TouchableOpacity
                     style={styles.deleteButton}
                     onPress={() => handleDeleteTodo(todo)}
@@ -240,11 +232,7 @@ export default function TodoListScreen() {
         animationType="fade"
         onRequestClose={() => setShowAddModal(false)}
       >
-        <KeyboardAvoidingView
-          style={styles.modalOverlay}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-        >
+        <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setShowAddModal(false)}>
@@ -270,7 +258,7 @@ export default function TodoListScreen() {
               <Text style={styles.saveButtonText}>Add Task</Text>
             </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Encouragement Toast */}
@@ -383,6 +371,7 @@ const styles = StyleSheet.create({
   todoItem: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "white",
     borderRadius: 8,
     padding: 16,
     marginBottom: 8,
@@ -395,11 +384,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: "#ffeb3b",
     backgroundColor: "#fefefe",
-  },
-  todoContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
   },
   checkbox: {
     width: 24,
@@ -436,10 +420,9 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    paddingTop: 80,
   },
   modalContent: {
     width: "100%",
@@ -495,7 +478,7 @@ const styles = StyleSheet.create({
   },
   encouragementToast: {
     position: "absolute",
-    bottom: 100,
+    top: 100,
     left: 20,
     right: 20,
     backgroundColor: "#4CAF50",
