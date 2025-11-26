@@ -6,19 +6,23 @@ import {
   TouchableOpacity,
   ScrollView,
   PanResponder,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import { useLocalSearchParams, useRouter, Link } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 import { useFood } from "../FoodContext";
+import MacroExplanationModal from "../helpers/MacroExplanationModal";
 
 export default function DailyIntakeScreen() {
   const router = useRouter();
-  const { dailyFoods, removeFood, userGoals, getFoodsForDate, getTotalCaloriesBurnedForDate } = useFood();
+  const { dailyFoods, removeFood, userGoals, getFoodsForDate } = useFood();
   const params = useLocalSearchParams();
   const mealType = (params.meal as string) || "all";
 
   // Day navigation state
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [showMacroExplanation, setShowMacroExplanation] = useState(false);
 
   // Get foods for current date and filter by meal type
   const mealFoods = useMemo(() => {
@@ -89,12 +93,8 @@ export default function DailyIntakeScreen() {
       }
     );
     
-    // Subtract calories burned from exercises (net calories = consumed - burned)
-    const caloriesBurned = getTotalCaloriesBurnedForDate(currentDate);
-    foodTotals.calories -= caloriesBurned;
-    
     return foodTotals;
-  }, [mealFoods, userGoals, currentDate, getTotalCaloriesBurnedForDate]);
+  }, [mealFoods, userGoals]);
 
   // Format current date for display
   const formatDate = (date: Date) => {
@@ -196,9 +196,8 @@ export default function DailyIntakeScreen() {
   const percent = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
   const isPremium = true;
 
-  // Calculate progress: net calories (consumed - burned) / goal
-  // Ensure progress doesn't go negative (if burned > consumed, show 0 progress)
-  const netCalories = Math.max(0, totals.calories);
+  // Calculate progress: consumed calories / goal
+  const netCalories = totals.calories;
   const progress = goals.calories > 0 ? netCalories / goals.calories : 0;
 
   function interpolateChannel(start: number, end: number, t: number) {
@@ -309,11 +308,6 @@ export default function DailyIntakeScreen() {
             </Svg>
             <Text style={styles.bigCircleNumber}>{Math.max(0, totals.calories)}</Text>
             <Text style={styles.bigCircleSub}>kcal</Text>
-            {totals.calories < 0 && (
-              <Text style={styles.bigCircleNote}>
-                ({Math.abs(totals.calories)} burned)
-              </Text>
-            )}
           </View>
         </View>
 
@@ -405,7 +399,15 @@ export default function DailyIntakeScreen() {
 
         {/* Summary section */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Summary</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Summary</Text>
+            <TouchableOpacity
+              onPress={() => setShowMacroExplanation(true)}
+              style={styles.helpButton}
+            >
+              <Text style={styles.helpButtonText}>?</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Calories */}
           <SummaryRow
@@ -417,62 +419,222 @@ export default function DailyIntakeScreen() {
             barPercent={percent(netCalories, goals.calories)}
             color="#4CAF50"
           />
-          {totals.calories < 0 && (
-            <View style={styles.caloriesBurnedNote}>
-              <Text style={styles.caloriesBurnedText}>
-                {Math.abs(totals.calories)} kcal burned from exercise
-              </Text>
-            </View>
-          )}
 
           {/* Protein with quality */}
-          <SummaryRow
-            label="Protein"
-            value={`${Math.round(totals.protein)} g`}
-            subLabel={`Avg quality: ${
-              totals.protein > 0
-                ? (totals.qualityProteinWeighted / totals.protein).toFixed(2)
-                : "0.00"
-            }  ·  >= ${(userGoals?.minAverageProteinQuality ?? 0.9).toFixed(
-              2
-            )}: ${
-              totals.protein > 0
-                ? Math.round((totals.qualityProteinHigh / totals.protein) * 100)
-                : 0
-            }%`}
-            barPercent={percent(totals.protein, goals.protein)}
-            color="#E57373"
-          />
+          {(() => {
+            // Calculate percentage of total calories from protein
+            const proteinCalories = totals.protein * 4;
+            const carbsCalories = totals.carbs * 4;
+            const fatCalories = totals.fat * 9;
+            const totalMacroCalories = proteinCalories + carbsCalories + fatCalories;
+            const proteinPercentOfCalories = totalMacroCalories > 0 
+              ? (proteinCalories / totalMacroCalories) * 100 
+              : 0;
 
-          {/* Carbs with fiber, sugars */}
-          <SummaryRow
-            label="Carbs"
-            value={`${Math.round(totals.carbs)} g`}
-            subLabel={`Fiber ${mealFoods.reduce(
+            return (
+              <View style={styles.summaryRow}>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.summaryHeader}>
+                    <Text style={styles.summaryLabel}>Protein</Text>
+                    <Text style={styles.summaryValue}>{Math.round(totals.protein)} g</Text>
+                  </View>
+                  <Text style={styles.summarySub}>
+                    Avg quality: {
+                      totals.protein > 0
+                        ? (totals.qualityProteinWeighted / totals.protein).toFixed(2)
+                        : "0.00"
+                    }  ·  {">="} {(userGoals?.minAverageProteinQuality ?? 0.9).toFixed(2)}: {
+                      totals.protein > 0
+                        ? Math.round((totals.qualityProteinHigh / totals.protein) * 100)
+                        : 0
+                    }%
+                  </Text>
+                  <View style={styles.summaryBarTrack}>
+                    <View
+                      style={[
+                        styles.summaryBarFill,
+                        {
+                          width: `${Math.max(0, Math.min(percent(totals.protein, goals.protein), 1)) * 100}%`,
+                          backgroundColor: "#E57373",
+                        },
+                      ]}
+                    />
+                  </View>
+                </View>
+                <Text style={styles.summaryPercent}>
+                  {Math.round(proteinPercentOfCalories)}%
+                </Text>
+              </View>
+            );
+          })()}
+
+          {/* Carbs with fiber, sugars sub-bars */}
+          {(() => {
+            const totalFiber = mealFoods.reduce(
               (a, f) => a + (Number(f.nutrition.fiber) || 0),
               0
-            )} g   ·   Sugars ${mealFoods.reduce(
+            );
+            const totalSugars = mealFoods.reduce(
               (a, f) => a + (Number(f.nutrition.sugars) || 0),
               0
-            )} g`}
-            barPercent={percent(totals.carbs, goals.carbs)}
-            color="#FFC107"
-          />
+            );
+            // Calculate percentage of total calories from carbs
+            const proteinCalories = totals.protein * 4;
+            const carbsCalories = totals.carbs * 4;
+            const fatCalories = totals.fat * 9;
+            const totalMacroCalories = proteinCalories + carbsCalories + fatCalories;
+            const carbsPercentOfCalories = totalMacroCalories > 0 
+              ? (carbsCalories / totalMacroCalories) * 100 
+              : 0;
+            const fiberPercent = totals.carbs > 0 ? Math.min(100, (totalFiber / totals.carbs) * 100) : 0;
+            const sugarsPercent = totals.carbs > 0 ? Math.min(100, (totalSugars / totals.carbs) * 100) : 0;
 
-          {/* Fat with saturated / unsaturated */}
-          <SummaryRow
-            label="Fat"
-            value={`${Math.round(totals.fat)} g`}
-            subLabel={`Saturated ${mealFoods.reduce(
+            return (
+              <View style={styles.summaryRow}>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.summaryHeader}>
+                    <Text style={styles.summaryLabel}>Carbs</Text>
+                    <Text style={styles.summaryValue}>{Math.round(totals.carbs)} g</Text>
+                  </View>
+                  <View style={styles.summaryBarTrack}>
+                    <View
+                      style={[
+                        styles.summaryBarFill,
+                        {
+                          width: `${Math.max(0, Math.min(percent(totals.carbs, goals.carbs), 1)) * 100}%`,
+                          backgroundColor: "#FFC107",
+                        },
+                      ]}
+                    />
+                  </View>
+                  {/* Sub-bars for fiber and sugars */}
+                  <View style={styles.subBarContainer}>
+                    <View style={styles.subBarItem}>
+                      <Text style={styles.subBarLabel}>Fiber</Text>
+                      <View style={styles.subBarTrack}>
+                        <View
+                          style={[
+                            styles.subBarFill,
+                            {
+                              width: `${fiberPercent}%`,
+                              backgroundColor: "#8BC34A",
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.subBarValue}>
+                        {Math.round(totalFiber)} g
+                      </Text>
+                    </View>
+                    <View style={styles.subBarItem}>
+                      <Text style={styles.subBarLabel}>Sugars</Text>
+                      <View style={styles.subBarTrack}>
+                        <View
+                          style={[
+                            styles.subBarFill,
+                            {
+                              width: `${sugarsPercent}%`,
+                              backgroundColor: "#FF9800",
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.subBarValue}>
+                        {Math.round(totalSugars)} g
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.summaryPercent}>
+                  {Math.round(carbsPercentOfCalories)}%
+                </Text>
+              </View>
+            );
+          })()}
+
+          {/* Fat with saturated / unsaturated sub-bars */}
+          {(() => {
+            const totalSaturated = mealFoods.reduce(
               (a, f) => a + (Number(f.nutrition.saturatedFat) || 0),
               0
-            )} g   ·   Unsaturated ${mealFoods.reduce(
+            );
+            const totalUnsaturated = mealFoods.reduce(
               (a, f) => a + (Number(f.nutrition.unsaturatedFat) || 0),
               0
-            )} g`}
-            barPercent={percent(totals.fat, goals.fat)}
-            color="#9C27B0"
-          />
+            );
+            // Calculate percentage of total calories from fat
+            const proteinCalories = totals.protein * 4;
+            const carbsCalories = totals.carbs * 4;
+            const fatCalories = totals.fat * 9;
+            const totalMacroCalories = proteinCalories + carbsCalories + fatCalories;
+            const fatPercentOfCalories = totalMacroCalories > 0 
+              ? (fatCalories / totalMacroCalories) * 100 
+              : 0;
+            const saturatedPercent = totals.fat > 0 ? Math.min(100, (totalSaturated / totals.fat) * 100) : 0;
+            const unsaturatedPercent = totals.fat > 0 ? Math.min(100, (totalUnsaturated / totals.fat) * 100) : 0;
+
+            return (
+              <View style={styles.summaryRow}>
+                <View style={{ flex: 1 }}>
+                  <View style={styles.summaryHeader}>
+                    <Text style={styles.summaryLabel}>Fat</Text>
+                    <Text style={styles.summaryValue}>{Math.round(totals.fat)} g</Text>
+                  </View>
+                  <View style={styles.summaryBarTrack}>
+                    <View
+                      style={[
+                        styles.summaryBarFill,
+                        {
+                          width: `${Math.max(0, Math.min(percent(totals.fat, goals.fat), 1)) * 100}%`,
+                          backgroundColor: "#9C27B0",
+                        },
+                      ]}
+                    />
+                  </View>
+                  {/* Sub-bars for saturated and unsaturated */}
+                  <View style={styles.subBarContainer}>
+                    <View style={styles.subBarItem}>
+                      <Text style={styles.subBarLabel}>Saturated</Text>
+                      <View style={styles.subBarTrack}>
+                        <View
+                          style={[
+                            styles.subBarFill,
+                            {
+                              width: `${saturatedPercent}%`,
+                              backgroundColor: "#E91E63",
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.subBarValue}>
+                        {Math.round(totalSaturated)} g
+                      </Text>
+                    </View>
+                    <View style={styles.subBarItem}>
+                      <Text style={styles.subBarLabel}>Unsaturated</Text>
+                      <View style={styles.subBarTrack}>
+                        <View
+                          style={[
+                            styles.subBarFill,
+                            {
+                              width: `${unsaturatedPercent}%`,
+                              backgroundColor: "#BA68C8",
+                            },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.subBarValue}>
+                        {Math.round(totalUnsaturated)} g
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <Text style={styles.summaryPercent}>
+                  {Math.round(fatPercentOfCalories)}%
+                </Text>
+              </View>
+            );
+          })()}
 
           {/* Other */}
           <View style={{ height: 8 }} />
@@ -521,6 +683,12 @@ export default function DailyIntakeScreen() {
           </TouchableOpacity>
         </Link>
       </View>
+
+      {/* Macro Explanation Modal */}
+      <MacroExplanationModal
+        visible={showMacroExplanation}
+        onClose={() => setShowMacroExplanation(false)}
+      />
     </View>
   );
 }
@@ -656,17 +824,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
   },
-  caloriesBurnedNote: {
-    marginTop: 8,
-    padding: 8,
-    backgroundColor: "#e3f2fd",
-    borderRadius: 6,
-  },
-  caloriesBurnedText: {
-    fontSize: 12,
-    color: "#1976d2",
-    textAlign: "center",
-  },
   mealTypeText: {
     fontSize: 16,
     fontWeight: "600",
@@ -783,11 +940,29 @@ const styles = StyleSheet.create({
     borderColor: "#eee",
     marginTop: 8,
   },
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   cardTitle: {
     fontSize: 16,
     fontWeight: "600",
     color: "#2c3e50",
-    marginBottom: 8,
+  },
+  helpButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#e0e0e0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  helpButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#666",
   },
   sectionLabel: {
     fontSize: 14,
@@ -827,6 +1002,37 @@ const styles = StyleSheet.create({
   summaryBarFill: {
     height: "100%",
     borderRadius: 6,
+  },
+  subBarContainer: {
+    marginTop: 8,
+    gap: 6,
+  },
+  subBarItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  subBarLabel: {
+    fontSize: 11,
+    color: "#666",
+    width: 60,
+  },
+  subBarTrack: {
+    flex: 1,
+    height: 4,
+    backgroundColor: "#e0e0e0",
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  subBarFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+  subBarValue: {
+    fontSize: 11,
+    color: "#666",
+    width: 40,
+    textAlign: "right",
   },
   summaryPercent: {
     color: "#7f8c8d",

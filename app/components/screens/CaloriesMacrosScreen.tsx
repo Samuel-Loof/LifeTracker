@@ -12,10 +12,13 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Modal,
+  TouchableWithoutFeedback,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { useFood } from "../FoodContext";
+import MacroExplanationModal from "../helpers/MacroExplanationModal";
 
 type Sex = "male" | "female";
 type ActivityLevel =
@@ -59,6 +62,7 @@ export default function CaloriesMacrosScreen() {
     carbs: 0,
     fat: 0,
   });
+  const [showMacroExplanation, setShowMacroExplanation] = useState(false);
 
   // Load data from context
   useEffect(() => {
@@ -845,6 +849,22 @@ export default function CaloriesMacrosScreen() {
             <TouchableOpacity
               style={[
                 styles.segmentedOption,
+                strategy === "lose" && styles.segmentedOptionActive,
+              ]}
+              onPress={() => setStrategy("lose")}
+            >
+              <Text
+                style={[
+                  styles.segmentedText,
+                  strategy === "lose" && styles.segmentedTextActive,
+                ]}
+              >
+                Lose
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentedOption,
                 strategy === "maintain" && styles.segmentedOptionActive,
               ]}
               onPress={() => setStrategy("maintain")}
@@ -872,22 +892,6 @@ export default function CaloriesMacrosScreen() {
                 ]}
               >
                 Gain
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.segmentedOption,
-                strategy === "lose" && styles.segmentedOptionActive,
-              ]}
-              onPress={() => setStrategy("lose")}
-            >
-              <Text
-                style={[
-                  styles.segmentedText,
-                  strategy === "lose" && styles.segmentedTextActive,
-                ]}
-              >
-                Lose
               </Text>
             </TouchableOpacity>
           </View>
@@ -989,7 +993,15 @@ export default function CaloriesMacrosScreen() {
 
         {/* Macro Settings */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Macros</Text>
+          <View style={styles.cardTitleRow}>
+            <Text style={styles.cardTitle}>Macros</Text>
+            <TouchableOpacity
+              onPress={() => setShowMacroExplanation(true)}
+              style={styles.helpButton}
+            >
+              <Text style={styles.helpButtonText}>?</Text>
+            </TouchableOpacity>
+          </View>
 
           <View style={styles.presetContainer}>
             <Text style={styles.presetLabel}>Macro Preset:</Text>
@@ -1151,6 +1163,12 @@ export default function CaloriesMacrosScreen() {
           <Text style={styles.saveButtonText}>Save Settings</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Macro Explanation Modal */}
+      <MacroExplanationModal
+        visible={showMacroExplanation}
+        onClose={() => setShowMacroExplanation(false)}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1199,11 +1217,29 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  cardTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
   cardTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#2c3e50",
-    marginBottom: 16,
+  },
+  helpButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#e0e0e0",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  helpButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "#666",
   },
   statsRow: {
     flexDirection: "row",
