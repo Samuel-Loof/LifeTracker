@@ -580,9 +580,14 @@ export default function HomeScreen() {
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.plusButton}
-          onPress={() =>
-            router.push(`/components/screens/AddFoodScreen?meal=${mealKey}`)
-          }
+          onPress={() => {
+            // Format date as YYYY-MM-DD in local time
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const dateParam = `${year}-${month}-${day}`;
+            router.push(`/components/screens/AddFoodScreen?meal=${mealKey}&date=${dateParam}`);
+          }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <Text style={styles.plusText}>+</Text>

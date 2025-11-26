@@ -665,7 +665,7 @@ export default function DailyIntakeScreen() {
       {/* Fixed bottom button */}
       <View style={styles.fixedButtonContainer}>
         <Link
-          href={`/components/screens/AddFoodScreen?meal=${mealType}`}
+          href={`/components/screens/AddFoodScreen?meal=${mealType}&date=${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`}
           asChild
         >
           <TouchableOpacity style={styles.addButton}>

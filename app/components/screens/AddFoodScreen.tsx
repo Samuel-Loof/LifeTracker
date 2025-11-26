@@ -98,15 +98,36 @@ export default function AddFoodScreen() {
     (food) => food.isFavorite
   );
 
-  // Get today's foods only
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
+  // Get foods for the specified date (or today if no date param)
+  const targetDate = useMemo(() => {
+    if (params.date) {
+      // Parse YYYY-MM-DD format without timezone issues
+      const dateStr = params.date as string;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      if (year && month && day) {
+        const dateFromParams = new Date(year, month - 1, day);
+        dateFromParams.setHours(12, 0, 0, 0);
+        return dateFromParams;
+      }
+    }
+    return new Date();
+  }, [params.date]);
+
+  const dateStart = useMemo(() => {
+    const start = new Date(targetDate);
+    start.setHours(0, 0, 0, 0);
+    return start;
+  }, [targetDate]);
+
+  const dateEnd = useMemo(() => {
+    const end = new Date(dateStart);
+    end.setDate(end.getDate() + 1);
+    return end;
+  }, [dateStart]);
 
   const addedFoods: FoodItem[] = dailyFoods.filter((food) => {
     const foodDate = new Date(food.timestamp);
-    return foodDate >= today && foodDate < tomorrow;
+    return foodDate >= dateStart && foodDate < dateEnd;
   });
 
   // Convert API FoodData -> UI FoodItem (default 1 serving)
