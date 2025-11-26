@@ -222,6 +222,24 @@ export default function FoodDetailsScreen() {
 
     const isEdit = (params.mode as string) === "edit" && params.id;
 
+    // Get target date - if editing, preserve original timestamp, otherwise use params.date or today
+    let foodTimestamp = new Date();
+    if (isEdit && currentFoodId) {
+      // When editing, preserve the original food's timestamp
+      const existingFood = dailyFoods.find((food) => food.id === currentFoodId);
+      if (existingFood) {
+        foodTimestamp = new Date(existingFood.timestamp);
+      }
+    } else if (params.date) {
+      // For new foods, use the date parameter if provided
+      const dateStr = params.date as string;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      if (year && month && day) {
+        foodTimestamp = new Date(year, month - 1, day);
+        foodTimestamp.setHours(12, 0, 0, 0);
+      }
+    }
+
     console.log("=== ONTRACK DEBUG ===");
     console.log("Creating food item with:", {
       name: params.name,
@@ -296,7 +314,7 @@ export default function FoodDetailsScreen() {
       },
       category: category || undefined,
       categories: categories.length > 0 ? categories : undefined,
-      timestamp: new Date(),
+      timestamp: foodTimestamp,
       mealType: selectedMeal,
       isFavorite: isFavorite,
     };

@@ -207,6 +207,17 @@ export default function AddFoodScreen() {
       navigateToDetails(food);
     } else {
       // Normal mode - add to daily intake
+      // Use target date if available, otherwise use today
+      let foodTimestamp = new Date();
+      if (params.date) {
+        const dateStr = params.date as string;
+        const [year, month, day] = dateStr.split('-').map(Number);
+        if (year && month && day) {
+          foodTimestamp = new Date(year, month - 1, day);
+          foodTimestamp.setHours(12, 0, 0, 0);
+        }
+      }
+
       const newFoodItem: FoodItem = {
         id: Date.now().toString(),
         name: food.name || "Unnamed Food",
@@ -220,10 +231,7 @@ export default function AddFoodScreen() {
           carbs: food.nutrition.carbs || 0,
           fat: food.nutrition.fat || 0,
         },
-        proteinQuality:
-          food.proteinQuality ??
-          lookupProteinQuality(`${food.name} ${food.brand}`),
-        timestamp: new Date(),
+        timestamp: foodTimestamp,
         mealType: mealType,
       };
 
@@ -236,6 +244,9 @@ export default function AddFoodScreen() {
     const category = (food as any).category || "";
     const categories = (food as any).categories || [];
     const categoriesParam = categories.length > 0 ? categories.join(",") : "";
+
+    // Get date parameter if available
+    const dateParam = params.date ? `&date=${encodeURIComponent(params.date as string)}` : "";
 
     const queryStr =
       `/components/screens/FoodDetailsScreen?` +
@@ -264,6 +275,7 @@ export default function AddFoodScreen() {
       )}` +
       (category ? `&category=${encodeURIComponent(category)}` : "") +
       (categoriesParam ? `&categories=${encodeURIComponent(categoriesParam)}` : "") +
+      dateParam +
       (isRecipeMode ? `&mode=recipe` : "");
 
     router.push(queryStr);

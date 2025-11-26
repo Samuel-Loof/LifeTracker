@@ -309,9 +309,11 @@ export default function HomeScreen() {
   const netCalories = caloriesConsumed - caloriesBurned;
   const caloriesLeft = Math.max(0, (targetCalories || 0) - netCalories);
   const over = netCalories > (targetCalories || 0);
+  // Progress should be based on net calories, but ensure it's at least 0
+  // If netCalories is negative (more burned than consumed), progress should be 0
   const progress =
     (targetCalories || 0) > 0
-      ? Math.min(netCalories / (targetCalories || 0), 1.5) // cap at 150%
+      ? Math.max(0, Math.min(netCalories / (targetCalories || 0), 1.5)) // cap at 150%, min 0
       : 0;
 
   function interpolateChannel(start: number, end: number, t: number) {
@@ -758,7 +760,14 @@ export default function HomeScreen() {
         <View style={styles.mealRow}>
           <TouchableOpacity
             style={styles.mealInfo}
-            onPress={() => router.push(`/components/screens/AddExerciseScreen`)}
+            onPress={() => {
+              // Format date as YYYY-MM-DD in local time
+              const year = currentDate.getFullYear();
+              const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+              const day = String(currentDate.getDate()).padStart(2, '0');
+              const dateParam = `${year}-${month}-${day}`;
+              router.push(`/components/screens/AddExerciseScreen?date=${dateParam}`);
+            }}
             activeOpacity={0.8}
           >
             <Text style={styles.mealLabel}>Exercise</Text>
