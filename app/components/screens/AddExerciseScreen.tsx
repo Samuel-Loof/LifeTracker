@@ -9,36 +9,30 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
-import Constants from "expo-constants";
 import { useFood, Exercise } from "../FoodContext";
 
-// Nutritionix API Configuration
-// To use the Exercise Lookup feature, you need to:
-// 1. Sign up for a free account at https://www.nutritionix.com/business/api
-// 2. Get your App ID and App Key from the dashboard
-// 3. Add them to app.json under "extra.nutritionix" or replace the values below
-const NUTRITIONIX_APP_ID =
-  Constants.expoConfig?.extra?.nutritionix?.appId || "YOUR_APP_ID";
-const NUTRITIONIX_APP_KEY =
-  Constants.expoConfig?.extra?.nutritionix?.appKey || "YOUR_APP_KEY";
+// API Ninjas API Configuration
+const API_NINJAS_KEY = "uhl7QIpDTdOJTGoIMpeG9A==l9fIoavV9RPXLBTd";
 
-interface NutritionixExerciseResult {
+interface ApiNinjasExerciseResult {
   name: string;
-  duration_min: number;
-  nf_calories: number;
+  calories_per_hour: number;
+  duration_minutes?: number;
+  total_calories?: number;
 }
 
-interface NutritionixResponse {
-  exercises: NutritionixExerciseResult[];
-}
+interface ApiNinjasResponse extends Array<ApiNinjasExerciseResult> {}
 
 export default function AddExerciseScreen() {
   const router = useRouter();
   const {
     exercises,
     addExercise,
+    updateExercise,
     removeExercise,
     getExercisesForDate,
     userGoals,
@@ -46,12 +40,15 @@ export default function AddExerciseScreen() {
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showAddModal, setShowAddModal] = useState(false);
-  const [addMode, setAddMode] = useState<"manual" | "api">("manual");
+  const [addMode, setAddMode] = useState<"manual" | "api">("api");
   const [manualCalories, setManualCalories] = useState("");
   const [manualExerciseName, setManualExerciseName] = useState("");
   const [apiQuery, setApiQuery] = useState("");
-  const [apiResults, setApiResults] = useState<NutritionixExerciseResult[]>([]);
+  const [apiResults, setApiResults] = useState<ApiNinjasExerciseResult[]>([]);
   const [loadingAPI, setLoadingAPI] = useState(false);
+  const [duration, setDuration] = useState("60");
+  const [editingExerciseId, setEditingExerciseId] = useState<string | null>(null);
+  const [editingDuration, setEditingDuration] = useState("");
 
   const exercisesForDate = useMemo(
     () => getExercisesForDate(currentDate),
@@ -130,82 +127,74 @@ export default function AddExerciseScreen() {
     setManualExerciseName("");
   };
 
-  const handleSearchAPI = async () => {
-    if (!apiQuery.trim()) {
-      Alert.alert("Error", "Please enter an exercise description");
-      return;
-    }
-
-    if (!userGoals) {
-      Alert.alert(
-        "Profile Required",
-        "Please set up your profile (age, sex, weight) to use exercise lookup"
-      );
-      return;
-    }
-
-    if (
-      NUTRITIONIX_APP_ID === "YOUR_APP_ID" ||
-      NUTRITIONIX_APP_KEY === "YOUR_APP_KEY"
-    ) {
-      Alert.alert(
-        "API Credentials Required",
-        "To use Exercise Lookup, please configure your Nutritionix API credentials.\n\n1. Sign up at https://www.nutritionix.com/business/api\n2. Get your App ID and App Key\n3. Add them to app.json under 'extra.nutritionix'"
-      );
-      return;
-    }
-
-    setLoadingAPI(true);
-    try {
-      // Nutritionix Exercise API
-      const response = await fetch(
-        "https://trackapi.nutritionix.com/v2/natural/exercise",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-app-id": NUTRITIONIX_APP_ID,
-            "x-app-key": NUTRITIONIX_APP_KEY,
-          },
-          body: JSON.stringify({
-            query: apiQuery,
-            gender: userGoals.sex === "male" ? "male" : "female",
-            weight_kg: userGoals.weightKg,
-            height_cm: userGoals.heightCm,
-            age: userGoals.age,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const data: NutritionixResponse = await response.json();
-      if (data.exercises && data.exercises.length > 0) {
-        setApiResults(data.exercises);
-      } else {
-        Alert.alert("No Results", "No exercises found for that description");
+  // Fetch exercises from API when query changes
+  useEffect(() => {
+    const searchExercises = async () => {
+      if (!apiQuery.trim()) {
+        // If query is empty, fetch a default list or clear results
         setApiResults([]);
+        return;
       }
-    } catch (error: any) {
-      console.error("Error fetching exercise data:", error);
-      Alert.alert(
-        "API Error",
-        error.message || "Failed to fetch exercise data. Please check your API credentials."
-      );
-      setApiResults([]);
-    } finally {
-      setLoadingAPI(false);
-    }
-  };
 
-  const handleSelectAPIExercise = (result: NutritionixExerciseResult) => {
+      if (!userGoals || typeof userGoals.weightKg !== 'number' || userGoals.weightKg <= 0) {
+        return;
+      }
+
+      setLoadingAPI(true);
+      try {
+        // Convert weight from kg to pounds
+        const weightLbs = Math.round(userGoals.weightKg * 2.20462);
+        const durationMinutes = parseInt(duration) || 60;
+        
+        // Ensure weight is within API limits (50-500 lbs)
+        const validWeight = Math.max(50, Math.min(500, weightLbs));
+
+        const url = `https://api.api-ninjas.com/v1/caloriesburned?activity=${encodeURIComponent(apiQuery)}&weight=${validWeight}&duration=${durationMinutes}`;
+        
+        const response = await fetch(url, {
+          headers: {
+            "X-Api-Key": API_NINJAS_KEY,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const data: ApiNinjasResponse = await response.json();
+        if (data && data.length > 0) {
+          // Add duration to each result
+          const resultsWithDuration = data.map((item) => ({
+            ...item,
+            duration_minutes: durationMinutes,
+            total_calories: item.calories_per_hour ? Math.round((item.calories_per_hour / 60) * durationMinutes) : 0,
+          }));
+          setApiResults(resultsWithDuration);
+        } else {
+          setApiResults([]);
+        }
+      } catch (error: any) {
+        console.error("Error fetching exercise data:", error);
+        setApiResults([]);
+      } finally {
+        setLoadingAPI(false);
+      }
+    };
+
+    // Debounce the search
+    const timeoutId = setTimeout(() => {
+      searchExercises();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [apiQuery, duration, userGoals]);
+
+  const handleSelectAPIExercise = (result: ApiNinjasExerciseResult) => {
     const exercise: Exercise = {
       id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       name: result.name,
-      caloriesBurned: Math.round(result.nf_calories),
-      duration: result.duration_min,
+      caloriesBurned: result.total_calories || Math.round((result.calories_per_hour / 60) * (result.duration_minutes || 60)),
+      duration: result.duration_minutes || parseInt(duration) || 60,
       timestamp: new Date(currentDate),
       isFromAPI: true,
     };
@@ -214,6 +203,7 @@ export default function AddExerciseScreen() {
     setShowAddModal(false);
     setApiQuery("");
     setApiResults([]);
+    setDuration("60");
   };
 
   const handleDeleteExercise = (exercise: Exercise) => {
@@ -241,23 +231,6 @@ export default function AddExerciseScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={styles.backButton}>←</Text>
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Exercise</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            setAddMode("manual");
-            setShowAddModal(true);
-          }}
-        >
-          <Text style={styles.addButtonText}>+</Text>
-        </TouchableOpacity>
-      </View>
-
       {/* Date Navigation */}
       <View style={styles.dateNavigation}>
         <TouchableOpacity onPress={goToPreviousDay}>
@@ -290,7 +263,31 @@ export default function AddExerciseScreen() {
 
         {/* Exercises List */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Exercises</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Exercises</Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => {
+                const weight = userGoals?.weightKg;
+                const hasValidWeight = userGoals && 
+                  weight !== null && 
+                  weight !== undefined && 
+                  (typeof weight === 'number' ? !isNaN(weight) && weight > 0 : false);
+                
+                if (!hasValidWeight) {
+                  Alert.alert(
+                    "Profile Required",
+                    "Please set up your profile (weight) in User Profile to use exercise lookup"
+                  );
+                  return;
+                }
+                setAddMode("api");
+                setShowAddModal(true);
+              }}
+            >
+              <Text style={styles.addButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
           {exercisesForDate.length === 0 ? (
             <View style={styles.emptyState}>
               <Text style={styles.emptyStateText}>
@@ -303,17 +300,83 @@ export default function AddExerciseScreen() {
           ) : (
             exercisesForDate.map((exercise) => (
               <View key={exercise.id} style={styles.exerciseCard}>
-                <View style={styles.exerciseInfo}>
+                <TouchableOpacity
+                  style={styles.exerciseInfo}
+                  onPress={() => {
+                    if (exercise.duration) {
+                      setEditingExerciseId(exercise.id);
+                      setEditingDuration(exercise.duration.toString());
+                    }
+                  }}
+                  activeOpacity={exercise.duration ? 0.7 : 1}
+                >
                   <Text style={styles.exerciseName}>{exercise.name}</Text>
                   <Text style={styles.exerciseCalories}>
                     {exercise.caloriesBurned} kcal
                   </Text>
-                  {exercise.duration && (
-                    <Text style={styles.exerciseDuration}>
-                      {exercise.duration} min
-                    </Text>
-                  )}
-                </View>
+                  {editingExerciseId === exercise.id ? (
+                    <View style={styles.editDurationContainer}>
+                      <TextInput
+                        style={styles.editDurationInput}
+                        value={editingDuration}
+                        onChangeText={setEditingDuration}
+                        placeholder="Duration (min)"
+                        keyboardType="numeric"
+                        autoFocus
+                        onBlur={() => {
+                          const newDuration = parseInt(editingDuration);
+                          if (newDuration > 0 && exercise.isFromAPI && userGoals) {
+                            // Recalculate calories based on new duration
+                            const weightLbs = Math.round(userGoals.weightKg * 2.20462);
+                            const validWeight = Math.max(50, Math.min(500, weightLbs));
+                            // We need to fetch the exercise again to get calories_per_hour
+                            // For now, we'll calculate based on the ratio
+                            const oldDuration = exercise.duration || 60;
+                            const caloriesPerMinute = exercise.caloriesBurned / oldDuration;
+                            const newCalories = Math.round(caloriesPerMinute * newDuration);
+                            updateExercise(exercise.id, {
+                              duration: newDuration,
+                              caloriesBurned: newCalories,
+                            });
+                          } else if (newDuration > 0) {
+                            updateExercise(exercise.id, {
+                              duration: newDuration,
+                            });
+                          }
+                          setEditingExerciseId(null);
+                          setEditingDuration("");
+                        }}
+                        onSubmitEditing={() => {
+                          const newDuration = parseInt(editingDuration);
+                          if (newDuration > 0 && exercise.isFromAPI && userGoals) {
+                            const weightLbs = Math.round(userGoals.weightKg * 2.20462);
+                            const validWeight = Math.max(50, Math.min(500, weightLbs));
+                            const oldDuration = exercise.duration || 60;
+                            const caloriesPerMinute = exercise.caloriesBurned / oldDuration;
+                            const newCalories = Math.round(caloriesPerMinute * newDuration);
+                            updateExercise(exercise.id, {
+                              duration: newDuration,
+                              caloriesBurned: newCalories,
+                            });
+                          } else if (newDuration > 0) {
+                            updateExercise(exercise.id, {
+                              duration: newDuration,
+                            });
+                          }
+                          setEditingExerciseId(null);
+                          setEditingDuration("");
+                        }}
+                      />
+                      <Text style={styles.editDurationLabel}>min</Text>
+                    </View>
+                    ) : (
+                      exercise.duration && (
+                        <Text style={styles.exerciseDuration}>
+                          {exercise.duration} min • Tap to edit
+                        </Text>
+                      )
+                    )}
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.deleteButton}
                   onPress={() => handleDeleteExercise(exercise)}
@@ -335,16 +398,27 @@ export default function AddExerciseScreen() {
           setShowAddModal(false);
           setApiQuery("");
           setApiResults([]);
+          setDuration("60");
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalOverlay}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity
                 onPress={() => {
                   setShowAddModal(false);
                   setApiQuery("");
                   setApiResults([]);
+                  setDuration("60");
                 }}
               >
                 <Text style={styles.modalClose}>×</Text>
@@ -424,63 +498,95 @@ export default function AddExerciseScreen() {
               </View>
             ) : (
               <View>
+                {(() => {
+                  // More robust check: handle null, undefined, 0, NaN, and string cases
+                  const weight = userGoals?.weightKg;
+                  const hasValidWeight = userGoals && 
+                    weight !== null && 
+                    weight !== undefined && 
+                    (typeof weight === 'number' ? !isNaN(weight) && weight > 0 : false);
+                  
+                  return !hasValidWeight ? (
+                    <View style={styles.warningContainer}>
+                      <Text style={styles.warningText}>
+                        Please set up your profile (weight) in User Profile to use exercise lookup
+                      </Text>
+                    </View>
+                  ) : null;
+                })()}
                 <View style={styles.inputContainer}>
                   <Text style={styles.inputLabel}>
-                    Describe your exercise
+                    Search for exercise
                   </Text>
                   <Text style={styles.inputHint}>
-                    e.g., "ran 3 miles in 30 minutes" or "did 45 minutes of
-                    weightlifting"
+                    Search by activity name (e.g., "running", "cycling")
                   </Text>
                   <TextInput
-                    style={[styles.textInput, styles.textInputMultiline]}
+                    style={styles.textInput}
                     value={apiQuery}
                     onChangeText={setApiQuery}
-                    placeholder="Enter exercise description..."
-                    multiline
+                    placeholder="Enter exercise name..."
                     autoFocus
+                    editable={!!(userGoals && typeof userGoals.weightKg === 'number' && userGoals.weightKg > 0)}
                   />
                 </View>
-                <TouchableOpacity
-                  style={[
-                    styles.saveButton,
-                    loadingAPI && styles.saveButtonDisabled,
-                  ]}
-                  onPress={handleSearchAPI}
-                  disabled={loadingAPI}
-                >
-                  {loadingAPI ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text style={styles.saveButtonText}>Search Exercise</Text>
-                  )}
-                </TouchableOpacity>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>
+                    Duration (minutes)
+                  </Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={duration}
+                    onChangeText={setDuration}
+                    placeholder="60"
+                    keyboardType="numeric"
+                    editable={!!(userGoals && typeof userGoals.weightKg === 'number' && userGoals.weightKg > 0)}
+                  />
+                </View>
+
+                {loadingAPI && (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color="#2c3e50" />
+                    <Text style={styles.loadingText}>Searching...</Text>
+                  </View>
+                )}
+
+                {!loadingAPI && apiQuery.trim() && apiResults.length === 0 && (
+                  <View style={styles.noResultsContainer}>
+                    <Text style={styles.noResultsText}>
+                      No exercises found. Try a different search term.
+                    </Text>
+                  </View>
+                )}
 
                 {apiResults.length > 0 && (
-                  <View style={styles.resultsContainer}>
-                    <Text style={styles.resultsTitle}>Select Exercise:</Text>
-                    {apiResults.map((result, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.resultItem}
-                        onPress={() => handleSelectAPIExercise(result)}
-                      >
-                        <View style={styles.resultInfo}>
-                          <Text style={styles.resultName}>{result.name}</Text>
-                          <Text style={styles.resultDetails}>
-                            {Math.round(result.nf_calories)} kcal •{" "}
-                            {result.duration_min} min
-                          </Text>
-                        </View>
-                        <Text style={styles.resultArrow}>→</Text>
-                      </TouchableOpacity>
-                    ))}
+                  <View style={styles.resultsWrapper}>
+                    <ScrollView style={styles.resultsContainer} nestedScrollEnabled>
+                      <Text style={styles.resultsTitle}>Select Exercise:</Text>
+                      {apiResults.map((result, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.resultItem}
+                          onPress={() => handleSelectAPIExercise(result)}
+                        >
+                          <View style={styles.resultInfo}>
+                            <Text style={styles.resultName}>{result.name}</Text>
+                            <Text style={styles.resultDetails}>
+                              {result.total_calories || Math.round((result.calories_per_hour / 60) * (result.duration_minutes || 60))} kcal •{" "}
+                              {result.duration_minutes || parseInt(duration) || 60} min
+                            </Text>
+                          </View>
+                          <Text style={styles.resultArrow}>→</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
                   </View>
                 )}
               </View>
             )}
-          </View>
-        </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
@@ -491,25 +597,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f8f9fa",
   },
-  header: {
-    height: 60,
+  sectionHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  backButton: {
-    fontSize: 24,
-    color: "#2c3e50",
-    fontWeight: "300",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#2c3e50",
+    marginBottom: 16,
   },
   addButton: {
     width: 32,
@@ -641,17 +733,22 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     alignItems: "center",
     padding: 20,
+    paddingTop: 60,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    width: "100%",
+    maxWidth: "90%",
   },
   modalContent: {
     width: "100%",
-    maxWidth: 400,
     backgroundColor: "white",
     borderRadius: 12,
     padding: 20,
-    maxHeight: "80%",
   },
   modalHeader: {
     flexDirection: "row",
@@ -733,9 +830,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  resultsContainer: {
+  resultsWrapper: {
     marginTop: 20,
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    padding: 12,
     maxHeight: 300,
+  },
+  resultsContainer: {
+    maxHeight: 276,
+  },
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+  },
+  loadingText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: "#666",
+  },
+  noResultsContainer: {
+    paddingVertical: 20,
+    alignItems: "center",
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
+  },
+  warningContainer: {
+    backgroundColor: "#fff3cd",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: "#ffc107",
+  },
+  warningText: {
+    fontSize: 14,
+    color: "#856404",
+    textAlign: "center",
+  },
+  editDurationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  editDurationInput: {
+    borderWidth: 1,
+    borderColor: "#2c3e50",
+    borderRadius: 6,
+    padding: 8,
+    fontSize: 14,
+    width: 100,
+    backgroundColor: "white",
+  },
+  editDurationLabel: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: "#666",
   },
   resultsTitle: {
     fontSize: 16,

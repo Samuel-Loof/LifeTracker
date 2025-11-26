@@ -15,6 +15,7 @@ import {
   convertLbsToKg,
   convertCmToFtIn,
   convertFtInToCm,
+  UserGoals,
 } from "../FoodContext";
 import DateTimePicker from "@react-native-community/datetimepicker";
 
@@ -76,31 +77,47 @@ export default function PersonalDetailsScreen() {
   }, [userGoals]);
 
   const handleSave = async () => {
-    if (userGoals) {
-      // Convert values based on units
-      let finalHeightCm = Number(heightCm) || 0;
-      let finalWeightKg = Number(weightKg) || 0;
+    // Convert values based on units
+    let finalHeightCm = Number(heightCm) || 0;
+    let finalWeightKg = Number(weightKg) || 0;
 
-      if (useImperialUnits) {
-        // Convert from imperial to metric
-        finalHeightCm = convertFtInToCm(
-          Number(heightFeet) || 0,
-          Number(heightInches) || 0
-        );
-        finalWeightKg = convertLbsToKg(Number(weightLbs) || 0);
-      }
-
-      const updatedGoals = {
-        ...userGoals,
-        firstName,
-        sex,
-        age,
-        heightCm: finalHeightCm,
-        weightKg: finalWeightKg,
-        useImperialUnits,
-      };
-      await setUserGoals(updatedGoals);
+    if (useImperialUnits) {
+      // Convert from imperial to metric
+      finalHeightCm = convertFtInToCm(
+        Number(heightFeet) || 0,
+        Number(heightInches) || 0
+      );
+      finalWeightKg = convertLbsToKg(Number(weightLbs) || 0);
     }
+
+    // Create or update userGoals
+    const updatedGoals: UserGoals = userGoals
+      ? {
+          ...userGoals,
+          firstName,
+          sex,
+          age,
+          heightCm: finalHeightCm,
+          weightKg: finalWeightKg,
+          useImperialUnits,
+        }
+      : {
+          // Create new userGoals with defaults for required fields
+          firstName,
+          sex,
+          age,
+          heightCm: finalHeightCm,
+          weightKg: finalWeightKg,
+          activity: "moderate",
+          strategy: "maintain",
+          pace: "moderate",
+          useManualCalories: false,
+          cuttingKeepMuscle: false,
+          useManualMacros: false,
+          useImperialUnits,
+        };
+
+    await setUserGoals(updatedGoals);
     router.back();
   };
 

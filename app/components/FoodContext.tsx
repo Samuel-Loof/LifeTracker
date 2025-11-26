@@ -204,6 +204,7 @@ interface FoodContextType {
   // Exercise tracking
   exercises: Exercise[];
   addExercise: (exercise: Exercise) => void;
+  updateExercise: (exerciseId: string, updates: Partial<Exercise>) => void;
   removeExercise: (exerciseId: string) => void;
   getExercisesForDate: (date: Date) => Exercise[];
   getTotalCaloriesBurnedForDate: (date: Date) => number;
@@ -733,6 +734,21 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     });
   };
 
+  const updateExercise = (exerciseId: string, updates: Partial<Exercise>) => {
+    setExercises((prev) => {
+      const updated = prev.map((exercise) =>
+        exercise.id === exerciseId ? { ...exercise, ...updates } : exercise
+      );
+      // Save to AsyncStorage asynchronously
+      AsyncStorage.setItem("exercises", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving exercises:", error);
+        }
+      );
+      return updated;
+    });
+  };
+
   const removeExercise = (exerciseId: string) => {
     setExercises((prev) => {
       const updated = prev.filter((exercise) => exercise.id !== exerciseId);
@@ -854,6 +870,7 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         getWaterIntakeForDate,
         exercises,
         addExercise,
+        updateExercise,
         removeExercise,
         getExercisesForDate,
         getTotalCaloriesBurnedForDate,

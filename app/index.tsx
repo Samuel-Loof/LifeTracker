@@ -23,7 +23,13 @@ import { useFood } from "./components/FoodContext";
 
 export default function HomeScreen() {
   const router = useRouter();
-  const { dailyFoods, userGoals, getFoodsForDate } = useFood();
+  const {
+    dailyFoods,
+    userGoals,
+    getFoodsForDate,
+    getTotalCaloriesBurnedForDate,
+    exercises,
+  } = useFood();
   const [showNavModal, setShowNavModal] = useState(false);
 
   // Day navigation state
@@ -57,7 +63,20 @@ export default function HomeScreen() {
     return getFoodsForDate(prevDay);
   }, [getFoodsForDate, prevDay]);
 
-  // Derive totals from foods for current date
+  // Gross calories from food only (for display)
+  const caloriesConsumed = useMemo(() => {
+    return foodsForDate.reduce(
+      (sum, f) => sum + (Number(f.nutrition.calories) || 0),
+      0
+    );
+  }, [foodsForDate]);
+
+  // Calories burned from exercise (for display + net)
+  const caloriesBurned = useMemo(() => {
+    return getTotalCaloriesBurnedForDate(currentDate);
+  }, [getTotalCaloriesBurnedForDate, currentDate, exercises]);
+
+  // Totals from food for macros etc.
   const totals = useMemo(() => {
     return foodsForDate.reduce(
       (acc, f) => {
@@ -286,11 +305,13 @@ export default function HomeScreen() {
     return { protein, carbs, fat };
   }, [userGoals, targetCalories]);
 
-  const caloriesLeft = Math.abs((targetCalories || 0) - (totals.calories || 0));
-  const over = (totals.calories || 0) > (targetCalories || 0);
+  // Net calories = consumed - burned
+  const netCalories = caloriesConsumed - caloriesBurned;
+  const caloriesLeft = Math.max(0, (targetCalories || 0) - netCalories);
+  const over = netCalories > (targetCalories || 0);
   const progress =
     (targetCalories || 0) > 0
-      ? (totals.calories || 0) / (targetCalories || 0)
+      ? Math.min(netCalories / (targetCalories || 0), 1.5) // cap at 150%
       : 0;
 
   function interpolateChannel(start: number, end: number, t: number) {
@@ -343,7 +364,7 @@ export default function HomeScreen() {
   const getGradientColors = (): [string, string, string] => {
     if (!targetCalories) return ["#667eea", "#764ba2", "#f093fb"]; // Default beautiful gradient
 
-    const calorieRatio = totals.calories / targetCalories;
+    const calorieRatio = netCalories / targetCalories;
 
     if (calorieRatio < 0.3) {
       // Low calories - fresh green gradients
@@ -646,7 +667,12 @@ export default function HomeScreen() {
           </View>
           <Text style={styles.goalBadge}>{goalBadge}</Text>
           <View style={styles.bigCircleSideRow}>
-            <Text style={styles.sideLabel}>{totals.calories} eaten</Text>
+            <Text style={styles.sideLabel}>{caloriesConsumed} eaten</Text>
+            {caloriesBurned > 0 && (
+              <Text style={styles.sideLabelNote}>
+                ({caloriesBurned} burned)
+              </Text>
+            )}
             <Text style={styles.sideLabel}>{targetCalories} goal</Text>
           </View>
         </View>
@@ -1012,6 +1038,11 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 6,
+  },
+  sideLabelNote: {
+    fontSize: 10,
+    color: "#666",
+    marginTop: 2,
   },
   sideLabel: {
     color: "#7f8c8d",

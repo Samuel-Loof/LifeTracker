@@ -13,7 +13,7 @@ import { useFood } from "../FoodContext";
 
 export default function DailyIntakeScreen() {
   const router = useRouter();
-  const { dailyFoods, removeFood, userGoals, getFoodsForDate } = useFood();
+  const { dailyFoods, removeFood, userGoals, getFoodsForDate, getTotalCaloriesBurnedForDate } = useFood();
   const params = useLocalSearchParams();
   const mealType = (params.meal as string) || "all";
 
@@ -63,7 +63,7 @@ export default function DailyIntakeScreen() {
 
   // totals
   const totals = useMemo(() => {
-    return mealFoods.reduce(
+    const foodTotals = mealFoods.reduce(
       (acc, f) => {
         const p = Number(f.nutrition.protein) || 0;
         const q =
@@ -88,7 +88,13 @@ export default function DailyIntakeScreen() {
         qualityProteinHigh: 0,
       }
     );
-  }, [mealFoods, userGoals]);
+    
+    // Subtract calories burned from exercises (net calories = consumed - burned)
+    const caloriesBurned = getTotalCaloriesBurnedForDate(currentDate);
+    foodTotals.calories -= caloriesBurned;
+    
+    return foodTotals;
+  }, [mealFoods, userGoals, currentDate, getTotalCaloriesBurnedForDate]);
 
   // Format current date for display
   const formatDate = (date: Date) => {
@@ -190,7 +196,10 @@ export default function DailyIntakeScreen() {
   const percent = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
   const isPremium = true;
 
-  const progress = goals.calories > 0 ? totals.calories / goals.calories : 0;
+  // Calculate progress: net calories (consumed - burned) / goal
+  // Ensure progress doesn't go negative (if burned > consumed, show 0 progress)
+  const netCalories = Math.max(0, totals.calories);
+  const progress = goals.calories > 0 ? netCalories / goals.calories : 0;
 
   function interpolateChannel(start: number, end: number, t: number) {
     return Math.round(start + (end - start) * t);
@@ -298,8 +307,13 @@ export default function DailyIntakeScreen() {
                 );
               })()}
             </Svg>
-            <Text style={styles.bigCircleNumber}>{totals.calories}</Text>
+            <Text style={styles.bigCircleNumber}>{Math.max(0, totals.calories)}</Text>
             <Text style={styles.bigCircleSub}>kcal</Text>
+            {totals.calories < 0 && (
+              <Text style={styles.bigCircleNote}>
+                ({Math.abs(totals.calories)} burned)
+              </Text>
+            )}
           </View>
         </View>
 
@@ -396,13 +410,20 @@ export default function DailyIntakeScreen() {
           {/* Calories */}
           <SummaryRow
             label="Calories"
-            value={`${totals.calories} kcal`}
+            value={`${Math.max(0, totals.calories)} kcal`}
             percentLabel={`${Math.round(
-              percent(totals.calories, goals.calories) * 100
+              percent(netCalories, goals.calories) * 100
             )}%`}
-            barPercent={percent(totals.calories, goals.calories)}
+            barPercent={percent(netCalories, goals.calories)}
             color="#4CAF50"
           />
+          {totals.calories < 0 && (
+            <View style={styles.caloriesBurnedNote}>
+              <Text style={styles.caloriesBurnedText}>
+                {Math.abs(totals.calories)} kcal burned from exercise
+              </Text>
+            </View>
+          )}
 
           {/* Protein with quality */}
           <SummaryRow
@@ -629,6 +650,22 @@ const styles = StyleSheet.create({
   bigCircleSub: {
     fontSize: 14,
     color: "#7f8c8d",
+  },
+  bigCircleNote: {
+    marginTop: 4,
+    fontSize: 12,
+    color: "#666",
+  },
+  caloriesBurnedNote: {
+    marginTop: 8,
+    padding: 8,
+    backgroundColor: "#e3f2fd",
+    borderRadius: 6,
+  },
+  caloriesBurnedText: {
+    fontSize: 12,
+    color: "#1976d2",
+    textAlign: "center",
   },
   mealTypeText: {
     fontSize: 16,
