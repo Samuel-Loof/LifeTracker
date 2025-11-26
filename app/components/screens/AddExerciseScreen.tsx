@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFood, Exercise } from "../FoodContext";
 
 // API Ninjas API Configuration
@@ -29,6 +29,7 @@ interface ApiNinjasResponse extends Array<ApiNinjasExerciseResult> {}
 
 export default function AddExerciseScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const {
     exercises,
     addExercise,
@@ -38,7 +39,21 @@ export default function AddExerciseScreen() {
     userGoals,
   } = useFood();
 
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Initialize currentDate from params if provided, otherwise use today
+  const [currentDate, setCurrentDate] = useState(() => {
+    if (params.date) {
+      // Parse YYYY-MM-DD format without timezone issues
+      const dateStr = params.date as string;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      if (year && month && day) {
+        const dateFromParams = new Date(year, month - 1, day);
+        // Set time to noon to avoid timezone issues
+        dateFromParams.setHours(12, 0, 0, 0);
+        return dateFromParams;
+      }
+    }
+    return new Date();
+  });
   const [showAddModal, setShowAddModal] = useState(false);
   const [addMode, setAddMode] = useState<"manual" | "api">("api");
   const [manualCalories, setManualCalories] = useState("");
@@ -239,13 +254,8 @@ export default function AddExerciseScreen() {
         <TouchableOpacity onPress={goToToday}>
           <Text style={styles.dateText}>{formatDate(currentDate)}</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={goToNextDay} disabled={isToday()}>
-          <Text
-            style={[
-              styles.dateNavButton,
-              isToday() && styles.dateNavButtonDisabled,
-            ]}
-          >
+        <TouchableOpacity onPress={goToNextDay}>
+          <Text style={styles.dateNavButton}>
             →
           </Text>
         </TouchableOpacity>
