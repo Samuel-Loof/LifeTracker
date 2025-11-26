@@ -61,6 +61,10 @@ export default function ScannerScreen() {
     console.log("Navigating to food details with:", foodData);
 
     // Navigate to FoodDetails.tsx
+    const categoriesParam = foodData.categories
+      ? foodData.categories.join(",")
+      : "";
+
     router.push({
       pathname: "/components/screens/FoodDetailsScreen",
       params: {
@@ -89,6 +93,9 @@ export default function ScannerScreen() {
         cholesterol: (foodData.cholesterol || 0).toString(),
         sodium: (foodData.sodium || 0).toString(),
         potassium: (foodData.potassium || 0).toString(),
+        // Pass category information for protein quality detection
+        category: foodData.category || "",
+        categories: categoriesParam,
       },
     });
   };

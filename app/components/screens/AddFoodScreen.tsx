@@ -110,21 +110,27 @@ export default function AddFoodScreen() {
   });
 
   // Convert API FoodData -> UI FoodItem (default 1 serving)
-  const mapApiToFoodItem = (f: FoodData): FoodItem => ({
-    id: `api:${f.barcode || `${f.name}|${f.brand}`}`,
-    name: f.name,
-    brand: f.brand,
-    amount: 1,
-    unit: "serving",
-    nutrition: {
-      calories: Number(f.calories) || 0,
-      protein: Number(f.protein) || 0,
-      carbs: Number(f.carbs) || 0,
-      fat: Number(f.fat) || 0,
-    },
-    timestamp: new Date(),
-    mealType: mealType,
-  });
+  const mapApiToFoodItem = (f: FoodData): FoodItem => {
+    const foodItem: any = {
+      id: `api:${f.barcode || `${f.name}|${f.brand}`}`,
+      name: f.name,
+      brand: f.brand,
+      amount: 1,
+      unit: "serving",
+      nutrition: {
+        calories: Number(f.calories) || 0,
+        protein: Number(f.protein) || 0,
+        carbs: Number(f.carbs) || 0,
+        fat: Number(f.fat) || 0,
+      },
+      timestamp: new Date(),
+      mealType: mealType,
+    };
+    // Preserve category information for protein quality detection
+    if (f.category) foodItem.category = f.category;
+    if (f.categories) foodItem.categories = f.categories;
+    return foodItem as FoodItem;
+  };
 
   const currentList = useMemo(() => {
     if (selectedTab === "recipes") {
@@ -206,6 +212,10 @@ export default function AddFoodScreen() {
   };
 
   const navigateToDetails = (food: FoodItem) => {
+    const category = (food as any).category || "";
+    const categories = (food as any).categories || [];
+    const categoriesParam = categories.length > 0 ? categories.join(",") : "";
+
     const queryStr =
       `/components/screens/FoodDetailsScreen?` +
       `name=${encodeURIComponent(food.name)}` +
@@ -231,23 +241,13 @@ export default function AddFoodScreen() {
       `&potassium=${encodeURIComponent(
         String(food.nutrition.potassium || 0)
       )}` +
+      (category ? `&category=${encodeURIComponent(category)}` : "") +
+      (categoriesParam ? `&categories=${encodeURIComponent(categoriesParam)}` : "") +
       (isRecipeMode ? `&mode=recipe` : "");
 
     router.push(queryStr);
   };
 
-  // Simple heuristic to estimate protein quality by name
-  function lookupProteinQuality(name: string): number {
-    const n = (name || "").toLowerCase();
-    if (/(egg|whey|casein|milk protein|beef|fish)/.test(n)) return 1.0;
-    if (/(soy isolate|soy protein isolate)/.test(n)) return 1.0;
-    if (/quinoa|pea protein|canola protein|potato protein/.test(n)) return 0.8;
-    if (/lentil|chickpea|bean|kidney bean|black bean|navy bean|pinto/.test(n))
-      return 0.65;
-    if (/oat|wheat|rice|barley|grain/.test(n)) return 0.5;
-    if (/almond|peanut|nut|seed/.test(n)) return 0.4;
-    return 0.7;
-  }
 
   return (
     <View style={styles.container}>

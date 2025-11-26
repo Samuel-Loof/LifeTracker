@@ -560,12 +560,18 @@ export default function HomeScreen() {
       0
     );
 
+    // Format date as YYYY-MM-DD in local time (not UTC) to avoid timezone issues
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateParam = `${year}-${month}-${day}`;
+
     return (
       <View style={styles.mealRow}>
         <TouchableOpacity
           style={styles.mealInfo}
           onPress={() =>
-            router.push(`/components/screens/DailyIntakeScreen?meal=${mealKey}`)
+            router.push(`/components/screens/DailyIntakeScreen?meal=${mealKey}&date=${dateParam}`)
           }
           activeOpacity={0.8}
         >

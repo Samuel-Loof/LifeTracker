@@ -29,6 +29,8 @@ export interface FoodItem {
     potassium?: number; // mg
   };
   proteinQuality?: number; // PDCAAS/DIAAS-style 0..1 estimate
+  category?: string; // Main category for protein quality detection
+  categories?: string[]; // All categories for protein quality detection
   timestamp: Date;
   mealType: string;
   isFavorite?: boolean;

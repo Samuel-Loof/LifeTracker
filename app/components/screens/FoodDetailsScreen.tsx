@@ -213,9 +213,13 @@ export default function FoodDetailsScreen() {
   })();
 
   const onTrack = async () => {
-    const proteinQuality = lookupProteinQuality(
-      `${params.name as string} ${params.brand as string}`
-    );
+    // Get category information from params if available
+    const category = params.category as string | undefined;
+    const categoriesParam = params.categories as string | undefined;
+    const categories = categoriesParam
+      ? categoriesParam.split(",").filter(Boolean)
+      : [];
+
     const isEdit = (params.mode as string) === "edit" && params.id;
 
     console.log("=== ONTRACK DEBUG ===");
@@ -290,7 +294,8 @@ export default function FoodDetailsScreen() {
                 : parseFloat(amount) || 1)
           ) || undefined,
       },
-      proteinQuality,
+      category: category || undefined,
+      categories: categories.length > 0 ? categories : undefined,
       timestamp: new Date(),
       mealType: selectedMeal,
       isFavorite: isFavorite,
@@ -388,17 +393,6 @@ export default function FoodDetailsScreen() {
     }
   };
 
-  function lookupProteinQuality(name: string): number {
-    const n = (name || "").toLowerCase();
-    if (/(egg|whey|casein|milk protein|beef|fish)/.test(n)) return 1.0;
-    if (/(soy isolate|soy protein isolate)/.test(n)) return 1.0;
-    if (/quinoa|pea protein|canola protein|potato protein/.test(n)) return 0.8;
-    if (/lentil|chickpea|bean|kidney bean|black bean|navy bean|pinto/.test(n))
-      return 0.65;
-    if (/oat|wheat|rice|barley|grain/.test(n)) return 0.5;
-    if (/almond|peanut|nut|seed/.test(n)) return 0.4;
-    return 0.7;
-  }
 
   return (
     <View style={styles.container}>

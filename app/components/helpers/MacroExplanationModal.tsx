@@ -77,6 +77,39 @@ export default function MacroExplanationModal({
                 If you're weight training, aim for 2.0-2.2g per kg (0.9-1.0g per lb)
                 to support muscle recovery and growth. A simple rule is ~1g per lb
                 of body weight for active individuals.
+                {'\n\n'}
+                <Text style={styles.boldText}>Protein Quality (PDCAAS):</Text>
+                {'\n\n'}
+                Not all protein sources are equal. Protein quality is measured by
+                PDCAAS (Protein Digestibility Corrected Amino Acid Score), which
+                ranges from 0 to 1.0. Higher scores mean better amino acid
+                profiles and digestibility.
+                {'\n\n'}
+                <Text style={styles.boldText}>Perfect Quality (1.0):</Text>
+                {'\n'}• Eggs, Whey protein, Casein, Milk
+                {'\n'}• Beef, Fish, Chicken
+                {'\n'}• Soy protein isolate
+                {'\n\n'}
+                <Text style={styles.boldText}>High Quality (0.75-0.99):</Text>
+                {'\n'}• Quinoa (~0.8), Pea protein (~0.89)
+                {'\n'}• Chickpeas (~0.78), Edamame (~0.78)
+                {'\n'}• Black beans (~0.75)
+                {'\n\n'}
+                <Text style={styles.boldText}>Moderate Quality (0.6-0.75):</Text>
+                {'\n'}• Lentils (~0.65), Most beans (~0.65-0.75)
+                {'\n'}• Green peas (~0.67)
+                {'\n\n'}
+                <Text style={styles.boldText}>Lower Quality (0.4-0.6):</Text>
+                {'\n'}• Grains: Oats (~0.57), Rice (~0.47), Wheat (~0.42)
+                {'\n'}• Nuts: Peanuts (~0.52), Almonds (~0.23)
+                {'\n\n'}
+                <Text style={styles.boldText}>Tips:</Text>
+                {'\n'}• Animal proteins are complete (all essential amino acids)
+                {'\n'}• Plant proteins can be combined (e.g., rice + beans) for
+                complete amino acid profiles
+                {'\n'}• For muscle building, prioritize high-quality sources
+                {'\n'}• During dieting, higher quality protein helps preserve
+                muscle mass
               </Text>
             </View>
             <View style={styles.modalSection}>
@@ -193,6 +226,10 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#666",
     lineHeight: 20,
+  },
+  boldText: {
+    fontWeight: "700",
+    color: "#2c3e50",
   },
 });
 

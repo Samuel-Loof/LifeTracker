@@ -20,8 +20,21 @@ export default function DailyIntakeScreen() {
   const params = useLocalSearchParams();
   const mealType = (params.meal as string) || "all";
 
-  // Day navigation state
-  const [currentDate, setCurrentDate] = useState(new Date());
+  // Day navigation state - initialize from params if provided
+  const [currentDate, setCurrentDate] = useState(() => {
+    if (params.date) {
+      // Parse YYYY-MM-DD format without timezone issues
+      const dateStr = params.date as string;
+      const [year, month, day] = dateStr.split('-').map(Number);
+      if (year && month && day) {
+        const dateFromParams = new Date(year, month - 1, day);
+        // Set time to noon to avoid timezone issues
+        dateFromParams.setHours(12, 0, 0, 0);
+        return dateFromParams;
+      }
+    }
+    return new Date();
+  });
   const [showMacroExplanation, setShowMacroExplanation] = useState(false);
 
   // Get foods for current date and filter by meal type
@@ -69,18 +82,10 @@ export default function DailyIntakeScreen() {
   const totals = useMemo(() => {
     const foodTotals = mealFoods.reduce(
       (acc, f) => {
-        const p = Number(f.nutrition.protein) || 0;
-        const q =
-          typeof (f as any).proteinQuality === "number"
-            ? (f as any).proteinQuality
-            : lookupProteinQuality(f.name || "");
         acc.calories += Number(f.nutrition.calories) || 0;
-        acc.protein += p;
+        acc.protein += Number(f.nutrition.protein) || 0;
         acc.carbs += Number(f.nutrition.carbs) || 0;
         acc.fat += Number(f.nutrition.fat) || 0;
-        acc.qualityProteinWeighted += p * q;
-        acc.qualityProteinHigh +=
-          q >= (userGoals?.minAverageProteinQuality ?? 0.9) ? p : 0;
         return acc;
       },
       {
@@ -88,13 +93,11 @@ export default function DailyIntakeScreen() {
         protein: 0,
         carbs: 0,
         fat: 0,
-        qualityProteinWeighted: 0,
-        qualityProteinHigh: 0,
       }
     );
     
     return foodTotals;
-  }, [mealFoods, userGoals]);
+  }, [mealFoods]);
 
   // Format current date for display
   const formatDate = (date: Date) => {
@@ -255,8 +258,6 @@ export default function DailyIntakeScreen() {
         >
           <Text style={styles.headerBackText}>×</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Today's Intake</Text>
-        <View style={{ width: 36 }} />
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -438,17 +439,6 @@ export default function DailyIntakeScreen() {
                     <Text style={styles.summaryLabel}>Protein</Text>
                     <Text style={styles.summaryValue}>{Math.round(totals.protein)} g</Text>
                   </View>
-                  <Text style={styles.summarySub}>
-                    Avg quality: {
-                      totals.protein > 0
-                        ? (totals.qualityProteinWeighted / totals.protein).toFixed(2)
-                        : "0.00"
-                    }  ·  {">="} {(userGoals?.minAverageProteinQuality ?? 0.9).toFixed(2)}: {
-                      totals.protein > 0
-                        ? Math.round((totals.qualityProteinHigh / totals.protein) * 100)
-                        : 0
-                    }%
-                  </Text>
                   <View style={styles.summaryBarTrack}>
                     <View
                       style={[
@@ -734,31 +724,7 @@ function SummaryRow({
     </View>
   );
 }
-// Rough heuristic protein quality lookup. In future, persist on food items.
-function lookupProteinQuality(name: string): number {
-  const n = name.toLowerCase();
-  if (/(egg|whey|casein|milk|beef|fish)/.test(n)) return 1.0;
-  if (/(soy isolate|soy protein isolate)/.test(n)) return 1.0;
-  if (/quinoa|pea protein|canola protein|potato protein/.test(n)) return 0.8;
-  if (/lentil|chickpea|bean|kidney bean|black bean|navy bean|pinto/.test(n))
-    return 0.65;
-  if (/oat|wheat|rice|barley|grain/.test(n)) return 0.5;
-  if (/almond|peanut|nut|seed/.test(n)) return 0.4;
-  return 0.7; // default mid quality
-}
 
-function computeAverageProteinQuality(foods: any[]): number {
-  let totalProtein = 0;
-  let weighted = 0;
-  for (const f of foods) {
-    const p = Number(f.nutrition?.protein) || 0;
-    const q = lookupProteinQuality(f.name || "");
-    totalProtein += p;
-    weighted += p * q;
-  }
-  if (totalProtein <= 0) return 0;
-  return weighted / totalProtein;
-}
 
 const styles = StyleSheet.create({
   container: {

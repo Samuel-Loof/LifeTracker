@@ -15,6 +15,8 @@ export interface FoodData {
     potassium?: number; // mg per 100g
     servingSize?: string; // "78 g", "1 cup", etc.
     caloriesPerServing?: number;
+    category?: string; // Main category from OpenFoodFacts
+    categories?: string[]; // All categories from OpenFoodFacts
 }
 
 // User-Agent required by OpenFoodFacts API
@@ -44,6 +46,17 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         const product = data.product;
         const nutriments = product.nutriments || {}; // Handle case where nutrition data is missing
         
+        // Extract categories
+        const categories: string[] = [];
+        if (product.categories) categories.push(product.categories);
+        if (product.categories_en) categories.push(product.categories_en);
+        if (product.categories_tags && Array.isArray(product.categories_tags)) {
+            categories.push(...product.categories_tags);
+        }
+        if (product.categories_hierarchy && Array.isArray(product.categories_hierarchy)) {
+            categories.push(...product.categories_hierarchy);
+        }
+        
         const foodData: FoodData = {
         barcode,
         name: product.product_name || 'Unknown Product',
@@ -61,6 +74,8 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         potassium: nutriments.potassium_100g ? Math.round(nutriments.potassium_100g * 1000) : 0,
         servingSize: product.serving_size || undefined,
         caloriesPerServing: nutriments.energy_kcal_serving || undefined,
+        category: product.categories || product.categories_en || undefined,
+        categories: categories.length > 0 ? categories : undefined,
     };
 
     // Debug logging for micronutrients
@@ -113,6 +128,18 @@ export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
       // Convert API results to our FoodData format
       return data.products.map((product: any) => {
         const nutriments = product.nutriments || {};
+        
+        // Extract categories
+        const categories: string[] = [];
+        if (product.categories) categories.push(product.categories);
+        if (product.categories_en) categories.push(product.categories_en);
+        if (product.categories_tags && Array.isArray(product.categories_tags)) {
+            categories.push(...product.categories_tags);
+        }
+        if (product.categories_hierarchy && Array.isArray(product.categories_hierarchy)) {
+            categories.push(...product.categories_hierarchy);
+        }
+        
         return {
             barcode: product.code || '',
         name: product.product_name || 'Unknown Product',
@@ -130,6 +157,8 @@ export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
         potassium: nutriments.potassium_100g ? Math.round(nutriments.potassium_100g * 1000) : 0,
         servingSize: product.serving_size || undefined,
         caloriesPerServing: nutriments.energy_kcal_serving || undefined,
+        category: product.categories || product.categories_en || undefined,
+        categories: categories.length > 0 ? categories : undefined,
         };
       }) .filter((food: FoodData) => food.name  !== 'Unknown Product'); // Filter out invalid results
     } catch (error) {
