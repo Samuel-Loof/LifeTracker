@@ -65,6 +65,18 @@ export default function RootLayout() {
             name="components/screens/AddExerciseScreen"
             options={{ title: "Exercise" }}
           />
+          <Stack.Screen
+            name="components/screens/WeightGraphScreen"
+            options={{ title: "Weight History" }}
+          />
+          <Stack.Screen
+            name="components/screens/NutritionInsightsScreen"
+            options={{ title: "Nutrition Insights" }}
+          />
+          <Stack.Screen
+            name="components/screens/AICameraScreen"
+            options={{ title: "AI Camera" }}
+          />
         </Stack>
       </HabitProvider>
     </FoodProvider>

@@ -163,6 +163,13 @@ export interface FastingSettings {
   notifyAtStart: boolean;
 }
 
+export interface WeightEntry {
+  id: string;
+  weightKg: number;
+  timestamp: Date;
+  notes?: string;
+}
+
 interface FoodContextType {
   dailyFoods: FoodItem[];
   addFood: (food: FoodItem) => void;
@@ -210,6 +217,12 @@ interface FoodContextType {
   removeExercise: (exerciseId: string) => void;
   getExercisesForDate: (date: Date) => Exercise[];
   getTotalCaloriesBurnedForDate: (date: Date) => number;
+
+  // Weight tracking
+  weightHistory: WeightEntry[];
+  addWeightEntry: (weightKg: number, notes?: string) => Promise<void>;
+  removeWeightEntry: (id: string) => Promise<void>;
+  getWeightHistory: (days?: number) => WeightEntry[];
 }
 
 // Create context
@@ -256,6 +269,7 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   });
   const [waterIntakes, setWaterIntakes] = useState<WaterIntake[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [weightHistory, setWeightHistory] = useState<WeightEntry[]>([]);
 
   useEffect(() => {
     loadDailyFoods();
@@ -266,6 +280,7 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     loadWaterSettings();
     loadWaterIntakes();
     loadExercises();
+    loadWeightHistory();
   }, []);
 
   const loadDailyFoods = async () => {
@@ -834,6 +849,64 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     return recipes.filter((recipe) => recipe.isFavorite);
   };
 
+  // Weight tracking functions
+  const loadWeightHistory = async () => {
+    try {
+      const stored = await AsyncStorage.getItem("weightHistory");
+      if (stored) {
+        const parsedHistory = JSON.parse(stored);
+        const historyWithDates = parsedHistory.map((entry: any) => ({
+          ...entry,
+          timestamp: new Date(entry.timestamp),
+        }));
+        setWeightHistory(historyWithDates);
+      }
+    } catch (error) {
+      console.error("Error loading weight history:", error);
+    }
+  };
+
+  const addWeightEntry = async (weightKg: number, notes?: string) => {
+    const newEntry: WeightEntry = {
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      weightKg,
+      timestamp: new Date(),
+      notes,
+    };
+    setWeightHistory((prev) => {
+      const updated = [...prev, newEntry].sort(
+        (a, b) => a.timestamp.getTime() - b.timestamp.getTime()
+      );
+      AsyncStorage.setItem("weightHistory", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving weight history:", error);
+        }
+      );
+      return updated;
+    });
+  };
+
+  const removeWeightEntry = async (id: string) => {
+    setWeightHistory((prev) => {
+      const updated = prev.filter((entry) => entry.id !== id);
+      AsyncStorage.setItem("weightHistory", JSON.stringify(updated)).catch(
+        (error) => {
+          console.error("Error saving weight history:", error);
+        }
+      );
+      return updated;
+    });
+  };
+
+  const getWeightHistory = (days?: number): WeightEntry[] => {
+    if (!days) return weightHistory;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+    return weightHistory.filter(
+      (entry) => entry.timestamp >= cutoffDate
+    );
+  };
+
   return (
     <FoodContext.Provider
       value={{
@@ -876,6 +949,10 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         removeExercise,
         getExercisesForDate,
         getTotalCaloriesBurnedForDate,
+        weightHistory,
+        addWeightEntry,
+        removeWeightEntry,
+        getWeightHistory,
       }}
     >
       {children}

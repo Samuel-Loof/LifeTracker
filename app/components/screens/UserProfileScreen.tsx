@@ -165,8 +165,8 @@ export default function UserProfileScreen() {
             <Text style={styles.infoLabel}>Current Weight</Text>
             <Text style={styles.infoValue}>
               {userGoals?.useImperialUnits
-                ? `${Math.round(parsed.weight * 2.20462)} lbs`
-                : `${Math.round(parsed.weight)} kg`}
+                ? `${(parsed.weight * 2.20462).toFixed(2).replace(/\.?0+$/, "")} lbs`
+                : `${parsed.weight.toFixed(2).replace(/\.?0+$/, "")} kg`}
             </Text>
           </View>
 
@@ -235,6 +235,38 @@ export default function UserProfileScreen() {
           >
             <Text style={styles.customizationButtonText}>
               Calories & Macros
+            </Text>
+            <Text style={styles.customizationButtonArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Weight Tracking Block */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Weight Tracking</Text>
+          <TouchableOpacity
+            style={styles.customizationButton}
+            onPress={() =>
+              router.push("/components/screens/WeightGraphScreen")
+            }
+          >
+            <Text style={styles.customizationButtonText}>
+              View Weight History
+            </Text>
+            <Text style={styles.customizationButtonArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Insights Block */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Analytics</Text>
+          <TouchableOpacity
+            style={styles.customizationButton}
+            onPress={() =>
+              router.push("/components/screens/NutritionInsightsScreen")
+            }
+          >
+            <Text style={styles.customizationButtonText}>
+              Nutrition Insights
             </Text>
             <Text style={styles.customizationButtonArrow}>→</Text>
           </TouchableOpacity>

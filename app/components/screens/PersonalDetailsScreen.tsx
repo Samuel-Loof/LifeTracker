@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Switch,
+  Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
 import {
@@ -17,13 +18,18 @@ import {
   convertFtInToCm,
   UserGoals,
 } from "../FoodContext";
+
+const MIN_WEIGHT_KG = 20;
+const MAX_WEIGHT_KG = 400;
+const MIN_WEIGHT_LBS = 44; // ~20kg
+const MAX_WEIGHT_LBS = 882; // ~400kg
 import DateTimePicker from "@react-native-community/datetimepicker";
 
 type Sex = "male" | "female";
 
 export default function PersonalDetailsScreen() {
   const router = useRouter();
-  const { userGoals, setUserGoals } = useFood();
+  const { userGoals, setUserGoals, addWeightEntry, weightHistory } = useFood();
 
   const [firstName, setFirstName] = useState<string>("John");
   const [sex, setSex] = useState<Sex>("male");
@@ -54,20 +60,56 @@ export default function PersonalDetailsScreen() {
 
   const age = calculateAge(dateOfBirth);
 
+  // Helper function to format weight input (convert comma to dot, limit to 2 decimals)
+  const formatWeightInput = (value: string, previousValue: string): string => {
+    // If empty, allow it
+    if (value === "") return "";
+    
+    // Replace comma with dot
+    let formatted = value.replace(/,/g, ".");
+    // Remove any non-numeric characters except dot
+    formatted = formatted.replace(/[^0-9.]/g, "");
+    
+    // Ensure only one dot
+    const parts = formatted.split(".");
+    if (parts.length > 2) {
+      formatted = parts[0] + "." + parts.slice(1).join("");
+    }
+    
+    // Limit to 2 decimal places - if trying to add more than 2 decimals, block the input
+    if (parts.length === 2 && parts[1].length > 2) {
+      // Return previous value to prevent the input from changing (this prevents white text)
+      return previousValue;
+    }
+    
+    return formatted;
+  };
+
+  // Validate weight range
+  const validateWeight = (weight: number, isImperial: boolean): boolean => {
+    if (isImperial) {
+      return weight >= MIN_WEIGHT_LBS && weight <= MAX_WEIGHT_LBS;
+    }
+    return weight >= MIN_WEIGHT_KG && weight <= MAX_WEIGHT_KG;
+  };
+
   // Load data from context
   useEffect(() => {
     if (userGoals) {
       setFirstName(userGoals.firstName || "John");
       setSex(userGoals.sex);
       setHeightCm(userGoals.heightCm.toString());
-      setWeightKg(userGoals.weightKg.toString());
+      // Format weight with up to 2 decimals
+      setWeightKg(userGoals.weightKg.toFixed(2).replace(/\.?0+$/, ""));
       setUseImperialUnits(userGoals.useImperialUnits || false);
 
       // Convert to imperial units for display
       const heightFtIn = convertCmToFtIn(userGoals.heightCm);
       setHeightFeet(heightFtIn.feet.toString());
       setHeightInches(heightFtIn.inches.toString());
-      setWeightLbs(convertKgToLbs(userGoals.weightKg).toFixed(0));
+      // Format weight with up to 2 decimals
+      const weightLbsValue = convertKgToLbs(userGoals.weightKg);
+      setWeightLbs(weightLbsValue.toFixed(2).replace(/\.?0+$/, ""));
 
       // Calculate date of birth from age
       const today = new Date();
@@ -79,7 +121,20 @@ export default function PersonalDetailsScreen() {
   const handleSave = async () => {
     // Convert values based on units
     let finalHeightCm = Number(heightCm) || 0;
-    let finalWeightKg = Number(weightKg) || 0;
+    // Parse weight - use parseFloat to handle decimals correctly
+    let finalWeightKg = parseFloat(weightKg) || 0;
+    
+    // Validate weight before conversion
+    if (!validateWeight(finalWeightKg, false)) {
+      Alert.alert(
+        "Invalid Weight",
+        `Weight must be between ${MIN_WEIGHT_KG} and ${MAX_WEIGHT_KG} kg`
+      );
+      return;
+    }
+    
+    // Round to 2 decimal places to avoid floating point precision issues
+    finalWeightKg = Math.round(finalWeightKg * 100) / 100;
 
     if (useImperialUnits) {
       // Convert from imperial to metric
@@ -87,7 +142,21 @@ export default function PersonalDetailsScreen() {
         Number(heightFeet) || 0,
         Number(heightInches) || 0
       );
-      finalWeightKg = convertLbsToKg(Number(weightLbs) || 0);
+      // Parse weight - use parseFloat to handle decimals correctly
+      const weightLbsValue = parseFloat(weightLbs) || 0;
+      
+      // Validate imperial weight
+      if (!validateWeight(weightLbsValue, true)) {
+        Alert.alert(
+          "Invalid Weight",
+          `Weight must be between ${MIN_WEIGHT_LBS} and ${MAX_WEIGHT_LBS} lbs`
+        );
+        return;
+      }
+      
+      finalWeightKg = convertLbsToKg(weightLbsValue);
+      // Round to 2 decimal places to avoid floating point precision issues
+      finalWeightKg = Math.round(finalWeightKg * 100) / 100;
     }
 
     // Create or update userGoals
@@ -118,6 +187,13 @@ export default function PersonalDetailsScreen() {
         };
 
     await setUserGoals(updatedGoals);
+    
+    // Add weight entry if weight changed (always add, even on same day)
+    const previousWeight = userGoals?.weightKg || 0;
+    if (Math.abs(finalWeightKg - previousWeight) > 0.01) {
+      await addWeightEntry(finalWeightKg);
+    }
+    
     router.back();
   };
 
@@ -157,7 +233,13 @@ export default function PersonalDetailsScreen() {
               <TextInput
                 style={styles.textInput}
                 value={weightLbs}
-                onChangeText={setWeightLbs}
+                onChangeText={(text) => {
+                  const formatted = formatWeightInput(text, weightLbs);
+                  // Only update if the value actually changed (prevents white text issue)
+                  if (formatted !== weightLbs) {
+                    setWeightLbs(formatted);
+                  }
+                }}
                 placeholder="165"
                 keyboardType="numeric"
               />
@@ -168,7 +250,13 @@ export default function PersonalDetailsScreen() {
               <TextInput
                 style={styles.textInput}
                 value={weightKg}
-                onChangeText={setWeightKg}
+                onChangeText={(text) => {
+                  const formatted = formatWeightInput(text, weightKg);
+                  // Only update if the value actually changed (prevents white text issue)
+                  if (formatted !== weightKg) {
+                    setWeightKg(formatted);
+                  }
+                }}
                 placeholder="75"
                 keyboardType="numeric"
               />
@@ -362,6 +450,7 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: "#f8f9fa",
+    color: "#2c3e50", // Explicitly set text color to black to prevent white text issue
   },
   inputRow: {
     flexDirection: "row",

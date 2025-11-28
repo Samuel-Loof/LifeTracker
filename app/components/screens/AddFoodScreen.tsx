@@ -297,13 +297,22 @@ export default function AddFoodScreen() {
           {isRecipeMode ? "Add Ingredient" : String(mealType).toUpperCase()}
         </Text>
         {!isRecipeMode && (
-          <TouchableOpacity
-            style={styles.headerRight}
-            onPress={() => setShowOptionsModal(true)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.headerRightText}>⋯</Text>
-          </TouchableOpacity>
+          <View style={styles.headerRightContainer}>
+            <TouchableOpacity
+              style={styles.headerRight}
+              onPress={() => router.push("/components/screens/AICameraScreen")}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.headerRightText}>📷</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.headerRight}
+              onPress={() => setShowOptionsModal(true)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.headerRightText}>⋯</Text>
+            </TouchableOpacity>
+          </View>
         )}
         {isRecipeMode && <View style={{ width: 36 }} />}
       </View>
@@ -719,6 +728,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
     color: "#2c3e50",
+  },
+  headerRightContainer: {
+    flexDirection: "row",
+    gap: 8,
   },
   headerRight: {
     width: 36,
