@@ -530,6 +530,63 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const updateWaterSettings = async (settings: WaterSettings) => {
+    // Check if container type is changing
+    const containerTypeChanged = waterSettings.containerType !== settings.containerType;
+    
+    if (containerTypeChanged) {
+      // Get today's water intake
+      const today = new Date();
+      today.setHours(12, 0, 0, 0);
+      const todayIntake = getWaterIntakeForDate(today);
+      
+      // Determine the increment for the new container type
+      const newIncrement = settings.containerType === "glass" ? 0.25 : 0.5;
+      
+      // Round down to the nearest valid increment
+      const roundedIntake = Math.floor(todayIntake / newIncrement) * newIncrement;
+      
+      console.log(
+        `Container type changed from ${waterSettings.containerType} to ${settings.containerType}. ` +
+        `Today's intake: ${todayIntake}L, rounded down to: ${roundedIntake}L`
+      );
+      
+      // Remove all today's water intakes
+      const todayStart = new Date(today);
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date(todayStart);
+      todayEnd.setDate(todayEnd.getDate() + 1);
+      
+      setWaterIntakes((prev) => {
+        const filtered = prev.filter((intake) => {
+          const intakeDate = new Date(intake.timestamp);
+          return !(intakeDate >= todayStart && intakeDate < todayEnd);
+        });
+        
+        // Add back the rounded-down amount if it's greater than 0
+        if (roundedIntake > 0) {
+          const newIntake: WaterIntake = {
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            amount: roundedIntake,
+            timestamp: today,
+          };
+          const updated = [...filtered, newIntake];
+          AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+            (error) => {
+              console.error("Error saving water intakes:", error);
+            }
+          );
+          return updated;
+        } else {
+          AsyncStorage.setItem("waterIntakes", JSON.stringify(filtered)).catch(
+            (error) => {
+              console.error("Error saving water intakes:", error);
+            }
+          );
+          return filtered;
+        }
+      });
+    }
+    
     setWaterSettingsState(settings);
     try {
       await AsyncStorage.setItem("waterSettings", JSON.stringify(settings));
@@ -643,20 +700,60 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         }
       }
 
-      // If no exact matches and we're trying to remove 0.25L, try to split a 0.5L intake
-      if (matchingIntakes.length === 0 && amount === 0.25) {
+      // If no exact matches and we're trying to remove 0.5L, try to split a larger intake
+      if (matchingIntakes.length === 0 && amount === 0.5) {
+        // Look for intakes > 0.5L (we already checked for exact 0.5L matches and two 0.25L)
         const largeIntakes = todayIntakes.filter(
-          (intake) => intake.amount === 0.5
+          (intake) => intake.amount > 0.5
         );
         if (largeIntakes.length > 0) {
-          // Find the most recent 0.5L intake and split it
+          // Find the most recent large intake
           const sortedLargeIntakes = largeIntakes.sort(
             (a, b) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
           const toSplit = sortedLargeIntakes[0];
+          
+          // Split the larger intake (e.g., 1.0L → 0.5L)
           console.log(
-            `Splitting 0.5L intake to simulate 0.25L removal:`,
+            `Splitting ${toSplit.amount}L intake to remove 0.5L:`,
+            toSplit.id
+          );
+          const updated = prev.filter((intake) => intake.id !== toSplit.id);
+          const remainingAmount = toSplit.amount - 0.5;
+          if (remainingAmount > 0) {
+            const newIntake = {
+              ...toSplit,
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              amount: remainingAmount,
+              timestamp: new Date(toSplit.timestamp),
+            };
+            updated.push(newIntake);
+          }
+          AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+            (error) => {
+              console.error("Error saving water intakes:", error);
+            }
+          );
+          return updated;
+        }
+      }
+
+      // If no exact matches and we're trying to remove 0.25L, try to split a larger intake
+      if (matchingIntakes.length === 0 && amount === 0.25) {
+        // First try to split a 0.5L intake (this was the original logic)
+        const halfLiterIntakes = todayIntakes.filter(
+          (intake) => intake.amount === 0.5
+        );
+        if (halfLiterIntakes.length > 0) {
+          // Find the most recent 0.5L intake and split it
+          const sortedHalfLiterIntakes = halfLiterIntakes.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          const toSplit = sortedHalfLiterIntakes[0];
+          console.log(
+            `Splitting 0.5L intake to remove 0.25L:`,
             toSplit.id
           );
 
@@ -666,10 +763,46 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
             ...toSplit,
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             amount: 0.25,
-            timestamp: new Date(),
+            timestamp: new Date(toSplit.timestamp),
           };
           updated.push(newIntake);
 
+          AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
+            (error) => {
+              console.error("Error saving water intakes:", error);
+            }
+          );
+          return updated;
+        }
+        
+        // If no 0.5L intakes, try to split a larger intake (e.g., 1.0L)
+        const largeIntakes = todayIntakes.filter(
+          (intake) => intake.amount > 0.25
+        );
+        if (largeIntakes.length > 0) {
+          // Find the most recent large intake
+          const sortedLargeIntakes = largeIntakes.sort(
+            (a, b) =>
+              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+          );
+          const toSplit = sortedLargeIntakes[0];
+          
+          // Split the larger intake (e.g., 1.0L → 0.75L, or 0.5L → 0.25L)
+          console.log(
+            `Splitting ${toSplit.amount}L intake to remove 0.25L:`,
+            toSplit.id
+          );
+          const updated = prev.filter((intake) => intake.id !== toSplit.id);
+          const remainingAmount = toSplit.amount - 0.25;
+          if (remainingAmount > 0) {
+            const newIntake = {
+              ...toSplit,
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              amount: remainingAmount,
+              timestamp: new Date(toSplit.timestamp),
+            };
+            updated.push(newIntake);
+          }
           AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
             (error) => {
               console.error("Error saving water intakes:", error);
