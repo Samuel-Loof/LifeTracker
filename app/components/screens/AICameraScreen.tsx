@@ -11,16 +11,19 @@ import {
   ScrollView,
 } from "react-native";
 import { CameraView, CameraType, useCameraPermissions } from "expo-camera";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useFood, FoodItem } from "../FoodContext";
 import * as FileSystem from "expo-file-system";
+import BarcodeScanner from "../BarcodeScanner";
+import { getFoodData, FoodData } from "../FoodDataService";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // IMPORTANT: You'll need to add your OpenAI API key here
 // For production, store this in environment variables or use Expo Constants
 // Get your API key from: https://platform.openai.com/api-keys
 // 
 // Option 1: Replace directly (not recommended for production)
-const OPENAI_API_KEY = "YOUR_OPENAI_API_KEY_HERE"; // Replace with your API key
+const OPENAI_API_KEY = "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"; 
 
 // Option 2: Use environment variables (recommended)
 // import Constants from 'expo-constants';
@@ -36,8 +39,11 @@ interface AIVisionResponse {
   confidence?: number;
 }
 
+type ScannerMode = "barcode" | "ai";
+
 export default function AICameraScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { addFood } = useFood();
   const [facing, setFacing] = useState<CameraType>("back");
   const [permission, requestPermission] = useCameraPermissions();
@@ -50,9 +56,103 @@ export default function AICameraScreen() {
     carbs: "",
     fat: "",
   });
-  const [mealType, setMealType] = useState<string>("breakfast");
+  const mealParam = Array.isArray(params.meal) ? params.meal[0] : (params.meal as string);
+  const modeParam = params.mode;
+  const [mealType, setMealType] = useState<string>(mealParam || "breakfast");
+  const [scannerMode, setScannerMode] = useState<ScannerMode>("barcode"); // Default to barcode
+  const [resetKey, setResetKey] = useState(0);
 
   const cameraRef = useRef<CameraView>(null);
+
+  // Load saved scanner mode preference
+  useEffect(() => {
+    const loadScannerMode = async () => {
+      try {
+        const savedMode = await AsyncStorage.getItem("scannerMode");
+        if (savedMode === "barcode" || savedMode === "ai") {
+          setScannerMode(savedMode);
+        }
+      } catch (error) {
+        console.error("Error loading scanner mode:", error);
+      }
+    };
+    loadScannerMode();
+  }, []);
+
+  // Save scanner mode preference when it changes
+  const handleModeChange = async (mode: ScannerMode) => {
+    setScannerMode(mode);
+    try {
+      await AsyncStorage.setItem("scannerMode", mode);
+    } catch (error) {
+      console.error("Error saving scanner mode:", error);
+    }
+  };
+
+  // Handle barcode scanning
+  const handleFoodScanned = async (barcode: string) => {
+    console.log("Processing barcode:", barcode);
+
+    try {
+      const foodData: FoodData | null = await getFoodData(barcode);
+
+      if (foodData) {
+        const categoriesParam = foodData.categories
+          ? foodData.categories.join(",")
+          : "";
+
+        router.push({
+          pathname: "/components/screens/FoodDetailsScreen",
+          params: {
+            name: foodData.name,
+            brand: foodData.brand,
+            calories: foodData.calories.toString(),
+            protein: foodData.protein.toString(),
+            carbs: foodData.carbs.toString(),
+            fat: foodData.fat.toString(),
+            barcode: foodData.barcode,
+            servingSize: foodData.servingSize || "100g",
+            meal: mealParam || "breakfast",
+            fromScanner: "true",
+            targetMeal: mealParam || "breakfast",
+            fromAddFood: "true",
+            mode: modeParam || undefined,
+            fiber: (foodData.fiber || 0).toString(),
+            sugars: (foodData.sugars || 0).toString(),
+            saturatedFat: (foodData.saturatedFat || 0).toString(),
+            unsaturatedFat: (foodData.unsaturatedFat || 0).toString(),
+            cholesterol: (foodData.cholesterol || 0).toString(),
+            sodium: (foodData.sodium || 0).toString(),
+            potassium: (foodData.potassium || 0).toString(),
+            category: foodData.category || "",
+            categories: categoriesParam,
+          },
+        });
+      } else {
+        Alert.alert(
+          "Product not found",
+          "This product isn't in our database yet. Would you like to add it manually?",
+          [
+            {
+              text: "No",
+              style: "cancel",
+              onPress: () => {
+                setResetKey((k) => k + 1);
+              },
+            },
+            {
+              text: "Yes",
+              onPress: () => {
+                router.push("/components/screens/ManualFoodEntry");
+              },
+            },
+          ]
+        );
+      }
+    } catch (error) {
+      console.error("Error processing barcode:", error);
+    }
+  };
 
   useEffect(() => {
     if (!permission) {
@@ -62,6 +162,11 @@ export default function AICameraScreen() {
 
   const analyzeImageWithAI = async (imageUri: string): Promise<AIVisionResponse | null> => {
     try {
+      // Check if API key is configured
+      if (!OPENAI_API_KEY || (typeof OPENAI_API_KEY === "string" && OPENAI_API_KEY.includes("YOUR_OPENAI_API_KEY"))) {
+        throw new Error("API_KEY_NOT_CONFIGURED");
+      }
+
       // Convert image to base64 using FileSystem
       const base64 = await FileSystem.readAsStringAsync(imageUri, {
         encoding: FileSystem.EncodingType.Base64,
@@ -111,7 +216,16 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
       );
 
       if (!openaiResponse.ok) {
-        throw new Error(`API error: ${openaiResponse.status}`);
+        const errorData = await openaiResponse.json().catch(() => ({}));
+        const errorMessage = errorData.error?.message || `API error: ${openaiResponse.status}`;
+        
+        if (openaiResponse.status === 401) {
+          throw new Error("API_KEY_INVALID");
+        } else if (openaiResponse.status === 429) {
+          throw new Error("API_RATE_LIMIT");
+        } else {
+          throw new Error(`API_ERROR: ${errorMessage}`);
+        }
       }
 
       const data = await openaiResponse.json();
@@ -129,9 +243,10 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
 
       const result = JSON.parse(jsonMatch[0]);
       return result;
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error analyzing image:", error);
-      return null;
+      // Return error details for better user feedback
+      throw error;
     }
   };
 
@@ -146,21 +261,33 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
       });
 
       if (photo?.uri) {
-        const result = await analyzeImageWithAI(photo.uri);
-        if (result) {
-          setAiResult(result);
-          setManualAdjustments({
-            calories: result.estimatedCalories.toString(),
-            protein: result.estimatedProtein.toString(),
-            carbs: result.estimatedCarbs.toString(),
-            fat: result.estimatedFat.toString(),
-          });
-          setShowResult(true);
-        } else {
-          Alert.alert(
-            "Error",
-            "Could not analyze the image. Please try again or add food manually."
-          );
+        try {
+          const result = await analyzeImageWithAI(photo.uri);
+          if (result) {
+            setAiResult(result);
+            setManualAdjustments({
+              calories: result.estimatedCalories.toString(),
+              protein: result.estimatedProtein.toString(),
+              carbs: result.estimatedCarbs.toString(),
+              fat: result.estimatedFat.toString(),
+            });
+            setShowResult(true);
+          }
+        } catch (error: any) {
+          console.error("Error analyzing image:", error);
+          let errorMessage = "Could not analyze the image. Please try again or add food manually.";
+          
+          if (error.message === "API_KEY_NOT_CONFIGURED") {
+            errorMessage = "OpenAI API key is not configured. Please set your API key in AICameraScreen.tsx to use the AI scanner feature.";
+          } else if (error.message === "API_KEY_INVALID") {
+            errorMessage = "Invalid OpenAI API key. Please check your API key configuration.";
+          } else if (error.message === "API_RATE_LIMIT") {
+            errorMessage = "API rate limit exceeded. Please try again in a moment.";
+          } else if (error.message?.includes("API_ERROR")) {
+            errorMessage = `API Error: ${error.message.replace("API_ERROR: ", "")}`;
+          }
+          
+          Alert.alert("Error", errorMessage);
         }
       }
     } catch (error) {
@@ -180,33 +307,6 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
       [{ text: "OK" }]
     );
     return;
-
-    if (!result.canceled && result.assets[0]) {
-      setIsProcessing(true);
-      try {
-        const analysisResult = await analyzeImageWithAI(result.assets[0].uri);
-        if (analysisResult) {
-          setAiResult(analysisResult);
-          setManualAdjustments({
-            calories: analysisResult.estimatedCalories.toString(),
-            protein: analysisResult.estimatedProtein.toString(),
-            carbs: analysisResult.estimatedCarbs.toString(),
-            fat: analysisResult.estimatedFat.toString(),
-          });
-          setShowResult(true);
-        } else {
-          Alert.alert(
-            "Error",
-            "Could not analyze the image. Please try again."
-          );
-        }
-      } catch (error) {
-        console.error("Error analyzing image:", error);
-        Alert.alert("Error", "Failed to analyze image.");
-      } finally {
-        setIsProcessing(false);
-      }
-    }
   };
 
   const handleSaveFood = () => {
@@ -282,8 +382,59 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
     );
   }
 
+  // Render mode switcher component
+  const renderModeSwitcher = () => (
+    <View style={styles.modeSwitcher}>
+      <TouchableOpacity
+        style={[
+          styles.modeButton,
+          scannerMode === "barcode" && styles.modeButtonActive,
+        ]}
+            onPress={() => handleModeChange("barcode")}
+      >
+        <Text
+          style={[
+            styles.modeButtonText,
+            scannerMode === "barcode" && styles.modeButtonTextActive,
+          ]}
+        >
+          📊 Barcode
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[
+          styles.modeButton,
+          scannerMode === "ai" && styles.modeButtonActive,
+        ]}
+            onPress={() => handleModeChange("ai")}
+      >
+        <Text
+          style={[
+            styles.modeButtonText,
+            scannerMode === "ai" && styles.modeButtonTextActive,
+          ]}
+        >
+          🤖 AI Scanner
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+
+  // If barcode mode, show barcode scanner
+  if (scannerMode === "barcode") {
+    return (
+      <View style={styles.container}>
+        {renderModeSwitcher()}
+        <Text style={styles.title}>Scan Food Barcode</Text>
+        <BarcodeScanner onFoodScanned={handleFoodScanned} resetKey={resetKey} />
+      </View>
+    );
+  }
+
+  // AI mode
   return (
     <View style={styles.container}>
+      {renderModeSwitcher()}
       <CameraView
         ref={cameraRef}
         style={styles.camera}
@@ -485,6 +636,48 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#000",
+  },
+  modeSwitcher: {
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 10,
+    paddingTop: 50,
+    backgroundColor: "#f8f9fa",
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+    gap: 10,
+  },
+  modeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modeButtonActive: {
+    backgroundColor: "#4CAF50",
+    borderColor: "#4CAF50",
+  },
+  modeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#7f8c8d",
+  },
+  modeButtonTextActive: {
+    color: "#fff",
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: "bold",
+    textAlign: "center",
+    margin: 20,
+    color: "#2c3e50",
+    backgroundColor: "#fff",
   },
   camera: {
     flex: 1,

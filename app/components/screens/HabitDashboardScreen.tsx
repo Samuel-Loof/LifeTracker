@@ -130,20 +130,6 @@ export default function HabitDashboardScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={{ width: 60 }} />
-        <Text style={styles.title}>Streaks</Text>
-        <TouchableOpacity
-          style={styles.settingsButton}
-          onPress={() =>
-            router.push("/components/screens/StreakNotificationSettingsScreen")
-          }
-        >
-          <Text style={styles.settingsButtonText}>⚙️</Text>
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.content} key={refreshKey}>
         {/* Notifications banner (prompt) */}
         <NotificationPrompt
@@ -436,49 +422,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingTop: 15,
-    paddingBottom: 12,
-    paddingHorizontal: 20,
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2c3e50",
-    letterSpacing: 0.5,
-  },
-  settingsButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  settingsButtonText: {
-    fontSize: 20,
-  },
-  fastingButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#4CAF50",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  fastingButtonText: {
-    fontSize: 18,
-    color: "#fff",
   },
   content: {
     padding: 20,

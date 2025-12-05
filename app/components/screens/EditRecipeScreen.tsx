@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -8,19 +8,62 @@ import {
   ScrollView,
   Alert,
 } from "react-native";
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
+import { router, useLocalSearchParams, useFocusEffect, useNavigation } from "expo-router";
 import { useFood, Recipe, RecipeIngredient } from "../FoodContext";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export default function EditRecipeScreen() {
-  const { recipes, updateRecipe, removeRecipe } = useFood();
+  const { recipes, updateRecipe, toggleRecipeFavorite, removeRecipe } = useFood();
   const params = useLocalSearchParams();
+  const navigation = useNavigation();
   const recipeId = params.editId as string;
 
   console.log("EditRecipeScreen loaded with recipeId:", recipeId);
 
   // Find the recipe to edit
   const originalRecipe = recipes.find((r) => r.id === recipeId);
+
+  // Set header buttons dynamically
+  useLayoutEffect(() => {
+    if (originalRecipe) {
+      navigation.setOptions({
+        headerRight: () => (
+          <View style={{ flexDirection: "row", gap: 12, marginRight: 15 }}>
+            <TouchableOpacity
+              onPress={() => toggleRecipeFavorite(originalRecipe.id)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={{ fontSize: 24 }}>
+                {originalRecipe.isFavorite ? "❤️" : "🤍"}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                Alert.alert(
+                  "Delete Recipe",
+                  `Are you sure you want to delete "${originalRecipe.name}"?`,
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => {
+                        removeRecipe(recipeId);
+                        router.back();
+                      },
+                    },
+                  ]
+                );
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={{ fontSize: 22 }}>🗑️</Text>
+            </TouchableOpacity>
+          </View>
+        ),
+      });
+    }
+  }, [navigation, originalRecipe, toggleRecipeFavorite, removeRecipe, recipeId]);
 
   console.log("Found recipe:", originalRecipe?.name);
 
@@ -101,17 +144,6 @@ export default function EditRecipeScreen() {
   if (!originalRecipe) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <View style={{ width: 60 }} />
-          <Text style={styles.title}>Edit Recipe</Text>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.deleteButton}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.deleteButtonText}>×</Text>
-          </TouchableOpacity>
-        </View>
         <View style={styles.content}>
           <Text style={styles.errorText}>Recipe not found</Text>
           <Text style={styles.errorSubtext}>Recipe ID: {recipeId}</Text>
@@ -224,41 +256,9 @@ export default function EditRecipeScreen() {
     setIngredients(ingredients.filter((ing) => ing.id !== ingredientId));
   };
 
-  const handleDeleteRecipe = () => {
-    Alert.alert(
-      "Delete Recipe",
-      `Are you sure you want to delete "${originalRecipe?.name}"?`,
-      [
-        {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            removeRecipe(recipeId);
-            router.back();
-          },
-        },
-      ]
-    );
-  };
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ width: 60 }} />
-        <Text style={styles.title}>Edit Recipe</Text>
-        <TouchableOpacity
-          onPress={handleDeleteRecipe}
-          style={styles.deleteButton}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.deleteButtonText}>🗑️</Text>
-        </TouchableOpacity>
-      </View>
-
       <View style={styles.content}>
         {/* Recipe Name */}
         <View style={styles.section}>
@@ -445,44 +445,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 12,
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  deleteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#fff",
-  },
-  deleteButtonText: {
-    fontSize: 18,
-    color: "#ff4444",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2c3e50",
-    letterSpacing: 0.5,
-  },
   content: {
     padding: 20,
+    paddingTop: 20,
   },
   section: {
     marginBottom: 24,

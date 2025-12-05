@@ -317,8 +317,8 @@ export default function AddFoodScreen() {
         {isRecipeMode && <View style={{ width: 36 }} />}
       </View>
 
-      {/* Search + camera row */}
-      <View style={styles.searchRow}>
+      {/* Search row */}
+      <View style={[styles.searchRow, { marginHorizontal: 20 }]}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           style={styles.searchInput}
@@ -327,21 +327,11 @@ export default function AddFoodScreen() {
           placeholder="food, meal, brand"
           placeholderTextColor="#9aa3aa"
         />
-        <TouchableOpacity
-          style={styles.cameraButton}
-          onPress={() =>
-            router.push(
-              `/scanner?meal=${mealType}${isRecipeMode ? "&mode=recipe" : ""}`
-            )
-          }
-        >
-          <Text style={styles.cameraIcon}>📷</Text>
-        </TouchableOpacity>
       </View>
 
       {/* Daily intake bar - hide in recipe mode */}
       {!isRecipeMode && (
-        <View style={styles.card}>
+        <View style={[styles.card, { marginHorizontal: 20 }]}>
           <View style={styles.dailyHeader}>
             <Text style={styles.dailyLabel}>Daily intake</Text>
             <Text
@@ -361,7 +351,7 @@ export default function AddFoodScreen() {
 
       {/* Macro bars */}
       {!isRecipeMode && (
-        <View style={styles.card}>
+        <View style={[styles.card, { marginHorizontal: 20 }]}>
           <View style={styles.macroRow}>
             <View style={styles.macroCol}>
               <Text style={styles.macroLabel}>Protein</Text>
@@ -420,7 +410,7 @@ export default function AddFoodScreen() {
 
       {/* Filters - hide in recipe mode */}
       {!isRecipeMode && (
-        <View style={styles.filtersRow}>
+        <View style={[styles.filtersRow, { marginHorizontal: 20 }]}>
           <TouchableOpacity
             style={[
               styles.filterBtn,
@@ -522,7 +512,7 @@ export default function AddFoodScreen() {
 
       {/* Clear All Favorites Button - only show in favorites tab when there are favorites */}
       {selectedTab === "favorites" && favoriteFoods.length > 0 && (
-        <View style={styles.clearFavoritesContainer}>
+        <View style={[styles.clearFavoritesContainer, { marginHorizontal: 20 }]}>
           <TouchableOpacity
             style={styles.clearFavoritesButton}
             onPress={() => {
@@ -553,7 +543,7 @@ export default function AddFoodScreen() {
       )}
 
       {/* List */}
-      <View style={styles.recentSection}>
+      <View style={[styles.recentSection, { marginHorizontal: 20 }]}>
         {selectedTab === "recipes" ? (
           filteredRecipes.length === 0 ? (
             <View style={styles.emptyRecipesContainer}>
@@ -699,14 +689,15 @@ export default function AddFoodScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: "#f8f9fa",
   },
   header: {
-    height: 56,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingTop: 50,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
   },
   headerLeft: {
     width: 36,
@@ -770,18 +761,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 15,
     color: "#2c3e50",
-  },
-  cameraButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: "#f1f4f7",
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 8,
-  },
-  cameraIcon: {
-    fontSize: 16,
   },
   card: {
     backgroundColor: "#fff",

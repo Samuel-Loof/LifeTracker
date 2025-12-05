@@ -7,6 +7,7 @@ import {
   ScrollView,
   PanResponder,
   Dimensions,
+  Image,
 } from "react-native";
 import { router } from "expo-router";
 import { useFood, WaterSettings } from "../FoodContext";
@@ -54,11 +55,6 @@ export default function WaterSettingsScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ width: 60 }} />
-        <Text style={styles.title}>Water Settings</Text>
-        <View style={{ width: 60 }} />
-      </View>
 
       <View style={styles.content}>
         {/* Daily Goal Slider */}
@@ -141,7 +137,11 @@ export default function WaterSettingsScreen() {
                 }))
               }
             >
-              <Text style={styles.containerIcon}>🍼</Text>
+              <Image
+                source={require("../../../assets/waterBottle2.png")}
+                style={styles.bottleImage}
+                resizeMode="contain"
+              />
               <Text style={styles.containerLabel}>Bottle</Text>
               <Text style={styles.containerAmount}>0.5L</Text>
             </TouchableOpacity>
@@ -165,30 +165,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#f5f5f5",
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 12,
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
   bottomSpacer: {
     height: 80, // Space to avoid phone navigation buttons
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2c3e50",
-    letterSpacing: 0.5,
   },
   content: {
     padding: 20,
@@ -202,6 +180,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#333",
     marginBottom: 16,
+    textAlign: "center",
   },
   sliderContainer: {
     backgroundColor: "#fff",
@@ -305,6 +284,11 @@ const styles = StyleSheet.create({
   },
   containerIcon: {
     fontSize: 32,
+    marginBottom: 8,
+  },
+  bottleImage: {
+    width: 40,
+    height: 40,
     marginBottom: 8,
   },
   containerLabel: {

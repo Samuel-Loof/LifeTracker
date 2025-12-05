@@ -207,12 +207,6 @@ export default function PersonalDetailsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ width: 36 }} />
-        <Text style={styles.headerTitle}>Personal Details</Text>
-        <View style={{ width: 36 }} />
-      </View>
-
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* First Name */}
         <View style={styles.card}>
@@ -397,31 +391,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
-  },
-  header: {
-    height: 60,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  headerBack: {
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerBackText: {
-    fontSize: 24,
-    color: "#2c3e50",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#2c3e50",
   },
   scrollContent: {
     padding: 20,

@@ -103,7 +103,13 @@ export default function StreakNotificationSettingsScreen() {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+        >
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Streak Notifications</Text>
         <View style={{ width: 40 }} />
       </View>
@@ -226,9 +232,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
+    paddingTop: 50,
     backgroundColor: "white",
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: "#2c3e50",
+    fontWeight: "600",
   },
   headerTitle: {
     fontSize: 18,

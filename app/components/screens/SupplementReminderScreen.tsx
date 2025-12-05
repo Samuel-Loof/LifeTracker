@@ -151,20 +151,6 @@ export default function SupplementReminderScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={{ width: 40 }} />
-        <Text style={styles.headerTitle}>Supplement Reminders</Text>
-        <TouchableOpacity
-          style={styles.timeFormatToggle}
-          onPress={() => setUse24HourFormat(!use24HourFormat)}
-        >
-          <Text style={styles.timeFormatText}>
-            {use24HourFormat ? "24h" : "12h"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.content}>
         {/* Add Reminder Button */}
         <TouchableOpacity
@@ -370,21 +356,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8f9fa",
-  },
-  header: {
-    height: 60,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#2c3e50",
   },
   timeFormatToggle: {
     paddingHorizontal: 12,

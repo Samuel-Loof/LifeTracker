@@ -211,21 +211,6 @@ export default function RecipeDetailsScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerActions}>
-          <TouchableOpacity
-            onPress={() => toggleRecipeFavorite(recipe.id)}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Text style={styles.favoriteButton}>
-              {recipe.isFavorite ? "❤️" : "🤍"}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleDelete}>
-            <Text style={styles.deleteButton}>🗑️</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
 
       <View style={styles.content}>
         <Text style={styles.recipeName}>{recipe.name}</Text>
@@ -403,26 +388,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 12,
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  headerActions: {
-    flexDirection: "row",
-    gap: 12,
   },
   favoriteButton: {
     fontSize: 24,

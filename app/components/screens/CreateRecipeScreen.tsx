@@ -181,11 +181,6 @@ export default function CreateRecipeScreen() {
 
   return (
     <ScrollView style={styles.container}>
-      <View style={styles.header}>
-        <View style={{ width: 60 }} />
-        <Text style={styles.title}>Create Recipe</Text>
-        <View style={{ width: 60 }} />
-      </View>
 
       <View style={styles.content}>
         {/* Recipe Name */}
@@ -372,28 +367,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 15,
-    paddingBottom: 12,
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#dee2e6",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2c3e50",
-    letterSpacing: 0.5,
   },
   content: {
     padding: 20,

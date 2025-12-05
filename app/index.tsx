@@ -8,6 +8,7 @@ import {
   PanResponder,
   Modal,
   TouchableWithoutFeedback,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { Link, useRouter } from "expo-router";
@@ -18,6 +19,8 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
   Stop,
   Rect,
+  ClipPath,
+  G,
 } from "react-native-svg";
 import { useFood } from "./components/FoodContext";
 
@@ -411,13 +414,19 @@ export default function HomeScreen() {
     return sums;
   }, [dailyFoods]);
 
-  // Water Fill Overlay Component
+  // Water Fill Overlay Component (for glass/emoji)
   const WaterFillOverlay = ({
     fillHeight = 0,
     isFilled = false,
     isPartiallyFilled = false,
   }) => {
     if (!isFilled && !isPartiallyFilled) return null;
+
+    // Reduced width to fit better inside the glass emoji
+    const glassWidth = 18; // Reduced from 24
+    const glassX = (32 - glassWidth) / 2; // Center it
+    const glassTop = 10; // Start a bit lower
+    const glassHeight = 22; // Reduced from 24
 
     return (
       <Svg
@@ -427,15 +436,102 @@ export default function HomeScreen() {
         style={{ position: "absolute", top: 0, left: 0 }}
       >
         <Rect
-          x="4"
-          y={isFilled ? "8" : `${40 - fillHeight * 0.8 - 2}`}
-          width="24"
-          height={isFilled ? "24" : `${fillHeight * 0.8}`}
+          x={glassX}
+          y={isFilled ? glassTop : `${40 - fillHeight * 0.7 - 2}`}
+          width={glassWidth}
+          height={isFilled ? glassHeight : `${fillHeight * 0.7}`}
           fill="#2196F3"
           opacity="0.7"
           rx="2"
         />
       </Svg>
+    );
+  };
+
+  // Water Bottle Component with Image and Fill (for bottle type only)
+  const WaterBottle = ({
+    fillPercentage = 0,
+    size = 40,
+  }: {
+    fillPercentage?: number;
+    size?: number;
+  }) => {
+    // Generate unique ID for clipPath
+    const uniqueId = useMemo(() => `bottle-mask-${Math.random().toString(36).substr(2, 9)}`, []);
+    
+    // Calculate water fill position - these values need to match your bottle image shape
+    // Adjust these percentages based on your actual bottle image
+    const bottleBodyTop = size * 0.22; // Top of bottle body (below cap) - moved down a bit
+    const bottleBodyBottom = size * 0.90; // Bottom of bottle - moved up a bit
+    const usableHeight = bottleBodyBottom - bottleBodyTop;
+    const waterHeight = usableHeight * fillPercentage;
+    const waterY = bottleBodyBottom - waterHeight;
+
+    // Bottle shape for clipping - reduced width to fit better inside bottle
+    // Typical bottle: narrower at top, wider at bottom
+    const bottleWidthTop = size * 0.26; // Reduced from 0.32 - Width at top of bottle body
+    const bottleWidthBottom = size * 0.32; // Reduced from 0.38 - Width at bottom of bottle body
+    const bottleX = (size - bottleWidthBottom) / 2; // Center the bottle
+
+    return (
+      <View style={{ width: size, height: size, position: "relative" }}>
+        {/* Bottle Image */}
+        <Image
+          source={require("../assets/waterBottle2.png")}
+          style={{
+            width: size,
+            height: size,
+            resizeMode: "contain",
+          }}
+        />
+        
+        {/* Water Fill - using SVG with clipPath to fit inside bottle shape */}
+        {fillPercentage > 0 && (
+          <Svg
+            width={size}
+            height={size}
+            style={{ position: "absolute", top: 0, left: 0 }}
+          >
+            <Defs>
+              <ClipPath id={uniqueId}>
+                {/* Create a bottle-shaped clip path - trapezoid shape (narrower at top, wider at bottom) */}
+                {/* Adjust these coordinates to match your bottle image */}
+                <Path
+                  d={`M${bottleX + (bottleWidthBottom - bottleWidthTop) / 2} ${bottleBodyTop} 
+                      L${bottleX + bottleWidthBottom - (bottleWidthBottom - bottleWidthTop) / 2} ${bottleBodyTop}
+                      L${bottleX + bottleWidthBottom} ${bottleBodyBottom}
+                      L${bottleX} ${bottleBodyBottom}
+                      Z`}
+                />
+              </ClipPath>
+            </Defs>
+            
+            {/* Water fill rectangle - will be clipped to bottle shape */}
+            <G clipPath={`url(#${uniqueId})`}>
+              {/* Rectangle will be clipped by the clipPath above */}
+              <Rect
+                x={bottleX}
+                y={waterY}
+                width={bottleWidthBottom}
+                height={waterHeight}
+                fill="#2196F3"
+                opacity="0.75"
+              />
+              {/* Water surface highlight */}
+              {fillPercentage > 0.05 && (
+                <Rect
+                  x={bottleX}
+                  y={waterY}
+                  width={bottleWidthBottom}
+                  height={Math.min(2, waterHeight * 0.08)}
+                  fill="#64B5F6"
+                  opacity="0.6"
+                />
+              )}
+            </G>
+          </Svg>
+        )}
+      </View>
     );
   };
 
@@ -492,28 +588,50 @@ export default function HomeScreen() {
         const isFilled = i < filledContainers;
         const isPartiallyFilled =
           i === filledContainers && todayIntake % containerAmount > 0;
-        const partialFillHeight = isPartiallyFilled
-          ? ((todayIntake % containerAmount) / containerAmount) * 100
-          : 0;
+        
+        // For glass type, use emoji with overlay
+        if (waterSettings.containerType === "glass") {
+          const partialFillHeight = isPartiallyFilled
+            ? ((todayIntake % containerAmount) / containerAmount) * 100
+            : 0;
 
-        containers.push(
-          <TouchableOpacity
-            key={i}
-            style={styles.containerWrapper}
-            onPress={() => handleContainerClick(i)}
-          >
-            <View style={styles.containerIconWrapper}>
-              <Text style={styles.containerIcon}>
-                {waterSettings.containerType === "glass" ? "🥛" : "🍼"}
-              </Text>
-              <WaterFillOverlay
-                fillHeight={partialFillHeight}
-                isFilled={isFilled}
-                isPartiallyFilled={isPartiallyFilled}
+          containers.push(
+            <TouchableOpacity
+              key={i}
+              style={styles.containerWrapper}
+              onPress={() => handleContainerClick(i)}
+            >
+              <View style={styles.containerIconWrapper}>
+                <Text style={styles.containerIcon}>🥛</Text>
+                <WaterFillOverlay
+                  fillHeight={partialFillHeight}
+                  isFilled={isFilled}
+                  isPartiallyFilled={isPartiallyFilled}
+                />
+              </View>
+            </TouchableOpacity>
+          );
+        } else {
+          // For bottle type, use image with water fill
+          const fillPercentage = isFilled
+            ? 1
+            : isPartiallyFilled
+            ? (todayIntake % containerAmount) / containerAmount
+            : 0;
+
+          containers.push(
+            <TouchableOpacity
+              key={i}
+              style={styles.containerWrapper}
+              onPress={() => handleContainerClick(i)}
+            >
+              <WaterBottle 
+                fillPercentage={fillPercentage} 
+                size={40}
               />
-            </View>
-          </TouchableOpacity>
-        );
+            </TouchableOpacity>
+          );
+        }
       }
       return containers;
     };
