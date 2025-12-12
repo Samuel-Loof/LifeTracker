@@ -1,12 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, StyleSheet, Alert, TouchableOpacity } from "react-native";
+import React, { useState } from "react";
+import { View, StyleSheet, Alert } from "react-native";
 import BarcodeScanner from "./components/BarcodeScanner";
 import { getFoodData, FoodData } from "./components/FoodDataService";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
-import AICameraScreen from "./components/screens/AICameraScreen";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-type ScannerMode = "barcode" | "ai";
 
 export default function ScannerScreen() {
   const router = useRouter();
@@ -14,32 +10,6 @@ export default function ScannerScreen() {
   const mealParam = params.meal;
   const modeParam = params.mode; // Check if we're in recipe mode
   const [resetKey, setResetKey] = useState(0);
-  const [scannerMode, setScannerMode] = useState<ScannerMode>("barcode"); // Default to barcode
-
-  // Load saved scanner mode preference
-  useEffect(() => {
-    const loadScannerMode = async () => {
-      try {
-        const savedMode = await AsyncStorage.getItem("scannerMode");
-        if (savedMode === "barcode" || savedMode === "ai") {
-          setScannerMode(savedMode);
-        }
-      } catch (error) {
-        console.error("Error loading scanner mode:", error);
-      }
-    };
-    loadScannerMode();
-  }, []);
-
-  // Save scanner mode preference when it changes
-  const handleModeChange = async (mode: ScannerMode) => {
-    setScannerMode(mode);
-    try {
-      await AsyncStorage.setItem("scannerMode", mode);
-    } catch (error) {
-      console.error("Error saving scanner mode:", error);
-    }
-  };
 
   //Function to handle when a barcode is scanned and process the food data
   const handleFoodScanned = async (barcode: string) => {
@@ -140,51 +110,8 @@ export default function ScannerScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Mode switcher */}
-      <View style={styles.modeSwitcher}>
-        <TouchableOpacity
-          style={[
-            styles.modeButton,
-            scannerMode === "barcode" && styles.modeButtonActive,
-          ]}
-          onPress={() => handleModeChange("barcode")}
-        >
-          <Text
-            style={[
-              styles.modeButtonText,
-              scannerMode === "barcode" && styles.modeButtonTextActive,
-            ]}
-          >
-            📷 Barcode
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.modeButton,
-            scannerMode === "ai" && styles.modeButtonActive,
-          ]}
-          onPress={() => handleModeChange("ai")}
-        >
-          <Text
-            style={[
-              styles.modeButtonText,
-              scannerMode === "ai" && styles.modeButtonTextActive,
-            ]}
-          >
-            🤖 AI Scanner
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Scanner content */}
-      {scannerMode === "barcode" ? (
-        <>
-          <Text style={styles.title}>Scan Food Barcode</Text>
-          <BarcodeScanner onFoodScanned={handleFoodScanned} resetKey={resetKey} />
-        </>
-      ) : (
-        <AICameraScreen />
-      )}
+      {/* Scanner content - Only barcode mode available */}
+      <BarcodeScanner onFoodScanned={handleFoodScanned} resetKey={resetKey} />
     </View>
   );
 }
@@ -192,52 +119,5 @@ export default function ScannerScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  modeSwitcher: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 10,
-    paddingTop: 50,
-    backgroundColor: "#f8f9fa",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    gap: 10,
-  },
-  modeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modeButtonActive: {
-    backgroundColor: "#4CAF50",
-    borderColor: "#4CAF50",
-  },
-  modeButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#7f8c8d",
-  },
-  modeButtonTextActive: {
-    color: "#fff",
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
-    margin: 20,
-    color: "#2c3e50",
-  },
-  tempText: {
-    fontSize: 16,
-    textAlign: "center",
-    margin: 20,
-    color: "#7f8c8d",
   },
 });

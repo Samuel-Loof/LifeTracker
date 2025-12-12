@@ -148,10 +148,11 @@ export default function RootLayout() {
             name="components/screens/NutritionInsightsScreen"
             options={{ title: "Nutrition Insights" }}
           />
-          <Stack.Screen
+          {/* AI Scanner screen disabled - requires paid OpenAI API */}
+          {/* <Stack.Screen
             name="components/screens/AICameraScreen"
             options={{ headerShown: false }}
-          />
+          /> */}
           <Stack.Screen
             name="components/screens/PersonalDetailsScreen"
             options={{ title: "Personal Details" }}

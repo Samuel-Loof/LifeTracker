@@ -297,22 +297,13 @@ export default function AddFoodScreen() {
           {isRecipeMode ? "Add Ingredient" : String(mealType).toUpperCase()}
         </Text>
         {!isRecipeMode && (
-          <View style={styles.headerRightContainer}>
-            <TouchableOpacity
-              style={styles.headerRight}
-              onPress={() => router.push("/components/screens/AICameraScreen")}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.headerRightText}>📷</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.headerRight}
-              onPress={() => setShowOptionsModal(true)}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            >
-              <Text style={styles.headerRightText}>⋯</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={styles.headerRight}
+            onPress={() => setShowOptionsModal(true)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.headerRightText}>⋯</Text>
+          </TouchableOpacity>
         )}
         {isRecipeMode && <View style={{ width: 36 }} />}
       </View>
@@ -327,6 +318,15 @@ export default function AddFoodScreen() {
           placeholder="food, meal, brand"
           placeholderTextColor="#9aa3aa"
         />
+        {!isRecipeMode && (
+          <TouchableOpacity
+            style={styles.searchCameraButton}
+            onPress={() => router.push(`/scanner?meal=${encodeURIComponent(mealType)}`)}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Text style={styles.searchCameraIcon}>📷</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Daily intake bar - hide in recipe mode */}
@@ -760,6 +760,16 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 15,
+    color: "#2c3e50",
+  },
+  searchCameraButton: {
+    paddingLeft: 8,
+    paddingRight: 4,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  searchCameraIcon: {
+    fontSize: 18,
     color: "#2c3e50",
   },
   card: {

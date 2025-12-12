@@ -18,16 +18,18 @@ import BarcodeScanner from "../BarcodeScanner";
 import { getFoodData, FoodData } from "../FoodDataService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+// AI SCANNER FUNCTIONALITY COMMENTED OUT - Requires paid OpenAI API
 // IMPORTANT: You'll need to add your OpenAI API key here
 // For production, store this in environment variables or use Expo Constants
 // Get your API key from: https://platform.openai.com/api-keys
 // 
 // Option 1: Replace directly (not recommended for production)
-const OPENAI_API_KEY = "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"; 
+// const OPENAI_API_KEY = "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"; 
 
 // Option 2: Use environment variables (recommended)
 // import Constants from 'expo-constants';
 // const OPENAI_API_KEY = Constants.expoConfig?.extra?.openaiApiKey || "";
+const OPENAI_API_KEY: string = ""; // Disabled - AI scanner requires paid API
 
 interface AIVisionResponse {
   foodName: string;
@@ -39,7 +41,8 @@ interface AIVisionResponse {
   confidence?: number;
 }
 
-type ScannerMode = "barcode" | "ai";
+// AI scanner mode disabled - only barcode mode available
+type ScannerMode = "barcode"; // | "ai"; // AI mode commented out
 
 export default function AICameraScreen() {
   const router = useRouter();
@@ -59,18 +62,23 @@ export default function AICameraScreen() {
   const mealParam = Array.isArray(params.meal) ? params.meal[0] : (params.meal as string);
   const modeParam = params.mode;
   const [mealType, setMealType] = useState<string>(mealParam || "breakfast");
-  const [scannerMode, setScannerMode] = useState<ScannerMode>("barcode"); // Default to barcode
+  const [scannerMode, setScannerMode] = useState<ScannerMode>("barcode"); // Only barcode mode available
   const [resetKey, setResetKey] = useState(0);
 
   const cameraRef = useRef<CameraView>(null);
 
-  // Load saved scanner mode preference
+  // Load saved scanner mode preference - AI mode disabled
   useEffect(() => {
     const loadScannerMode = async () => {
       try {
         const savedMode = await AsyncStorage.getItem("scannerMode");
-        if (savedMode === "barcode" || savedMode === "ai") {
+        // Only allow barcode mode - AI mode is disabled
+        if (savedMode === "barcode") {
           setScannerMode(savedMode);
+        }
+        // Force barcode mode if AI was previously selected
+        if (savedMode === "ai") {
+          await AsyncStorage.setItem("scannerMode", "barcode");
         }
       } catch (error) {
         console.error("Error loading scanner mode:", error);
@@ -160,10 +168,12 @@ export default function AICameraScreen() {
     }
   }, [permission]);
 
+  // AI IMAGE ANALYSIS FUNCTION - COMMENTED OUT (requires paid OpenAI API)
+  /* eslint-disable */
   const analyzeImageWithAI = async (imageUri: string): Promise<AIVisionResponse | null> => {
     try {
       // Check if API key is configured
-      if (!OPENAI_API_KEY || (typeof OPENAI_API_KEY === "string" && OPENAI_API_KEY.includes("YOUR_OPENAI_API_KEY"))) {
+      if (!OPENAI_API_KEY || OPENAI_API_KEY === "" || (typeof OPENAI_API_KEY === "string" && OPENAI_API_KEY.includes("YOUR_OPENAI_API_KEY"))) {
         throw new Error("API_KEY_NOT_CONFIGURED");
       }
 
@@ -249,8 +259,14 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
       throw error;
     }
   };
+  /* eslint-enable */
 
+  // AI CAMERA PICTURE FUNCTION - COMMENTED OUT (requires paid OpenAI API)
+  /* eslint-disable */
   const takePicture = async () => {
+    Alert.alert("AI Scanner Disabled", "The AI scanner feature has been disabled as it requires a paid OpenAI API key. Please use the barcode scanner instead.");
+    return;
+    /*
     if (!cameraRef.current) return;
 
     setIsProcessing(true);
@@ -296,7 +312,9 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
     } finally {
       setIsProcessing(false);
     }
+    */
   };
+  /* eslint-enable */
 
   const pickImage = async () => {
     // Use CameraView's built-in image picker or implement with expo-image-picker
@@ -382,7 +400,7 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
     );
   }
 
-  // Render mode switcher component
+  // Render mode switcher component - AI mode disabled
   const renderModeSwitcher = () => (
     <View style={styles.modeSwitcher}>
       <TouchableOpacity
@@ -401,7 +419,8 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
           📊 Barcode
         </Text>
       </TouchableOpacity>
-      <TouchableOpacity
+      {/* AI Scanner button disabled - requires paid OpenAI API */}
+      {/* <TouchableOpacity
         style={[
           styles.modeButton,
           scannerMode === "ai" && styles.modeButtonActive,
@@ -416,220 +435,223 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
         >
           🤖 AI Scanner
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity> */}
     </View>
   );
 
-  // If barcode mode, show barcode scanner
-  if (scannerMode === "barcode") {
-    return (
-      <View style={styles.container}>
-        {renderModeSwitcher()}
-        <Text style={styles.title}>Scan Food Barcode</Text>
-        <BarcodeScanner onFoodScanned={handleFoodScanned} resetKey={resetKey} />
-      </View>
-    );
-  }
-
-  // AI mode
+  // Only barcode mode available - AI mode disabled
+  // Always return barcode scanner (AI mode is disabled)
   return (
     <View style={styles.container}>
       {renderModeSwitcher()}
-      <CameraView
-        ref={cameraRef}
-        style={styles.camera}
-        facing={facing}
-      >
-        <View style={styles.overlay}>
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.closeButtonText}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>AI Food Scanner</Text>
-            <TouchableOpacity
-              style={styles.flipButton}
-              onPress={() =>
-                setFacing(facing === "back" ? "front" : "back")
-              }
-            >
-              <Text style={styles.flipButtonText}>🔄</Text>
-            </TouchableOpacity>
-          </View>
+      <Text style={styles.title}>Scan Food Barcode</Text>
+      <BarcodeScanner onFoodScanned={handleFoodScanned} resetKey={resetKey} />
+    </View>
+  );
 
-          <View style={styles.footer}>
-            <TouchableOpacity
-              style={styles.galleryButton}
-              onPress={pickImage}
-            >
-              <Text style={styles.galleryButtonText}>📷 Gallery</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.captureButton,
-                isProcessing && styles.captureButtonDisabled,
-              ]}
-              onPress={takePicture}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <View style={styles.captureButtonInner} />
-              )}
-            </TouchableOpacity>
-
-            <View style={{ width: 100 }} />
-          </View>
-        </View>
-      </CameraView>
-
-      {/* Result Modal */}
-      <Modal
-        visible={showResult}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowResult(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>AI Analysis Result</Text>
+  /* AI MODE CODE COMMENTED OUT - Requires paid OpenAI API
+  // The following code is disabled as it requires a paid OpenAI API key
+  
+  if (scannerMode === "ai") {
+    return (
+      <View style={styles.container}>
+        {renderModeSwitcher()}
+        <CameraView
+          ref={cameraRef}
+          style={styles.camera}
+          facing={facing}
+        >
+          <View style={styles.overlay}>
+            <View style={styles.header}>
               <TouchableOpacity
-                onPress={() => setShowResult(false)}
-                style={styles.modalCloseButton}
+                style={styles.closeButton}
+                onPress={() => router.back()}
               >
-                <Text style={styles.modalCloseText}>✕</Text>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>AI Food Scanner</Text>
+              <TouchableOpacity
+                style={styles.flipButton}
+                onPress={() =>
+                  setFacing(facing === "back" ? "front" : "back")
+                }
+              >
+                <Text style={styles.flipButtonText}>🔄</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.modalScroll}>
-              {aiResult && (
-                <>
-                  <View style={styles.resultSection}>
-                    <Text style={styles.resultLabel}>Food Name</Text>
-                    <Text style={styles.resultValue}>{aiResult.foodName}</Text>
-                    {aiResult.confidence && (
-                      <Text style={styles.confidenceText}>
-                        Confidence: {aiResult.confidence}%
-                      </Text>
-                    )}
-                  </View>
-
-                  <View style={styles.resultSection}>
-                    <Text style={styles.resultLabel}>Serving Size</Text>
-                    <Text style={styles.resultValue}>
-                      {aiResult.servingSize || "1 serving"}
-                    </Text>
-                  </View>
-
-                  <View style={styles.resultSection}>
-                    <Text style={styles.resultLabel}>Nutrition (adjustable)</Text>
-                    <View style={styles.nutritionInputs}>
-                      <View style={styles.inputRow}>
-                        <Text style={styles.inputLabel}>Calories</Text>
-                        <TextInput
-                          style={styles.input}
-                          value={manualAdjustments.calories}
-                          onChangeText={(text) =>
-                            setManualAdjustments({
-                              ...manualAdjustments,
-                              calories: text,
-                            })
-                          }
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={styles.inputRow}>
-                        <Text style={styles.inputLabel}>Protein (g)</Text>
-                        <TextInput
-                          style={styles.input}
-                          value={manualAdjustments.protein}
-                          onChangeText={(text) =>
-                            setManualAdjustments({
-                              ...manualAdjustments,
-                              protein: text,
-                            })
-                          }
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={styles.inputRow}>
-                        <Text style={styles.inputLabel}>Carbs (g)</Text>
-                        <TextInput
-                          style={styles.input}
-                          value={manualAdjustments.carbs}
-                          onChangeText={(text) =>
-                            setManualAdjustments({
-                              ...manualAdjustments,
-                              carbs: text,
-                            })
-                          }
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={styles.inputRow}>
-                        <Text style={styles.inputLabel}>Fat (g)</Text>
-                        <TextInput
-                          style={styles.input}
-                          value={manualAdjustments.fat}
-                          onChangeText={(text) =>
-                            setManualAdjustments({
-                              ...manualAdjustments,
-                              fat: text,
-                            })
-                          }
-                          keyboardType="numeric"
-                        />
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.resultSection}>
-                    <Text style={styles.resultLabel}>Meal Type</Text>
-                    <View style={styles.mealTypeButtons}>
-                      {["breakfast", "lunch", "dinner", "snack"].map(
-                        (type) => (
-                          <TouchableOpacity
-                            key={type}
-                            style={[
-                              styles.mealTypeButton,
-                              mealType === type && styles.mealTypeButtonActive,
-                            ]}
-                            onPress={() => setMealType(type)}
-                          >
-                            <Text
-                              style={[
-                                styles.mealTypeButtonText,
-                                mealType === type &&
-                                  styles.mealTypeButtonTextActive,
-                              ]}
-                            >
-                              {type.charAt(0).toUpperCase() + type.slice(1)}
-                            </Text>
-                          </TouchableOpacity>
-                        )
-                      )}
-                    </View>
-                  </View>
-                </>
-              )}
+            <View style={styles.footer}>
+              <TouchableOpacity
+                style={styles.galleryButton}
+                onPress={pickImage}
+              >
+                <Text style={styles.galleryButtonText}>📷 Gallery</Text>
+              </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSaveFood}
+                style={[
+                  styles.captureButton,
+                  isProcessing && styles.captureButtonDisabled,
+                ]}
+                onPress={takePicture}
+                disabled={isProcessing}
               >
-                <Text style={styles.saveButtonText}>Add to Diary</Text>
+                {isProcessing ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <View style={styles.captureButtonInner} />
+                )}
               </TouchableOpacity>
-            </ScrollView>
+
+              <View style={{ width: 100 }} />
+            </View>
           </View>
-        </View>
-      </Modal>
-    </View>
-  );
+        </CameraView>
+
+        <Modal
+          visible={showResult}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowResult(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>AI Analysis Result</Text>
+                <TouchableOpacity
+                  onPress={() => setShowResult(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <Text style={styles.modalCloseText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView style={styles.modalScroll}>
+                {aiResult && (
+                  <>
+                    <View style={styles.resultSection}>
+                      <Text style={styles.resultLabel}>Food Name</Text>
+                      <Text style={styles.resultValue}>{aiResult.foodName}</Text>
+                      {aiResult.confidence && (
+                        <Text style={styles.confidenceText}>
+                          Confidence: {aiResult.confidence}%
+                        </Text>
+                      )}
+                    </View>
+
+                    <View style={styles.resultSection}>
+                      <Text style={styles.resultLabel}>Serving Size</Text>
+                      <Text style={styles.resultValue}>
+                        {aiResult.servingSize || "1 serving"}
+                      </Text>
+                    </View>
+
+                    <View style={styles.resultSection}>
+                      <Text style={styles.resultLabel}>Nutrition (adjustable)</Text>
+                      <View style={styles.nutritionInputs}>
+                        <View style={styles.inputRow}>
+                          <Text style={styles.inputLabel}>Calories</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={manualAdjustments.calories}
+                            onChangeText={(text) =>
+                              setManualAdjustments({
+                                ...manualAdjustments,
+                                calories: text,
+                              })
+                            }
+                            keyboardType="numeric"
+                          />
+                        </View>
+                        <View style={styles.inputRow}>
+                          <Text style={styles.inputLabel}>Protein (g)</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={manualAdjustments.protein}
+                            onChangeText={(text) =>
+                              setManualAdjustments({
+                                ...manualAdjustments,
+                                protein: text,
+                              })
+                            }
+                            keyboardType="numeric"
+                          />
+                        </View>
+                        <View style={styles.inputRow}>
+                          <Text style={styles.inputLabel}>Carbs (g)</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={manualAdjustments.carbs}
+                            onChangeText={(text) =>
+                              setManualAdjustments({
+                                ...manualAdjustments,
+                                carbs: text,
+                              })
+                            }
+                            keyboardType="numeric"
+                          />
+                        </View>
+                        <View style={styles.inputRow}>
+                          <Text style={styles.inputLabel}>Fat (g)</Text>
+                          <TextInput
+                            style={styles.input}
+                            value={manualAdjustments.fat}
+                            onChangeText={(text) =>
+                              setManualAdjustments({
+                                ...manualAdjustments,
+                                fat: text,
+                              })
+                            }
+                            keyboardType="numeric"
+                          />
+                        </View>
+                      </View>
+                    </View>
+
+                    <View style={styles.resultSection}>
+                      <Text style={styles.resultLabel}>Meal Type</Text>
+                      <View style={styles.mealTypeButtons}>
+                        {["breakfast", "lunch", "dinner", "snack"].map(
+                          (type) => (
+                            <TouchableOpacity
+                              key={type}
+                              style={[
+                                styles.mealTypeButton,
+                                mealType === type && styles.mealTypeButtonActive,
+                              ]}
+                              onPress={() => setMealType(type)}
+                            >
+                              <Text
+                                style={[
+                                  styles.mealTypeButtonText,
+                                  mealType === type &&
+                                    styles.mealTypeButtonTextActive,
+                                ]}
+                              >
+                                {type.charAt(0).toUpperCase() + type.slice(1)}
+                              </Text>
+                            </TouchableOpacity>
+                          )
+                        )}
+                      </View>
+                    </View>
+                  </>
+                )}
+
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSaveFood}
+                >
+                  <Text style={styles.saveButtonText}>Add to Diary</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </View>
+        </Modal>
+      </View>
+    );
+  }
+  */
 }
 
 const styles = StyleSheet.create({
