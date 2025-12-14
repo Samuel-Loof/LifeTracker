@@ -59,45 +59,6 @@ export default function AddFoodScreen() {
     "recent" | "favorites" | "recipes" | "added"
   >("recent");
 
-  // Totals for daily intake bar (all meals)
-  const totals = useMemo(() => {
-    return dailyFoods.reduce(
-      (acc, f) => {
-        acc.calories += Number(f.nutrition.calories) || 0;
-        acc.protein += Number(f.nutrition.protein) || 0;
-        acc.carbs += Number(f.nutrition.carbs) || 0;
-        acc.fat += Number(f.nutrition.fat) || 0;
-        return acc;
-      },
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    );
-  }, [dailyFoods]);
-
-  // Placeholder goals
-  const goals = { calories: 2000, protein: 150, carbs: 250, fat: 70 };
-  const pct = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
-
-  // Recent foods - last 100, dedupe by name+brand, most recent first
-  const recentFoodsRaw: FoodItem[] =
-    dailyFoods.length > 0 ? dailyFoods.slice(-100).reverse() : [];
-  const uniqueRecentFoods = useMemo(() => {
-    const seen = new Set<string>();
-    const result: FoodItem[] = [];
-    for (const food of recentFoodsRaw) {
-      const key = `${food.name}|${food.brand}`.toLowerCase();
-      if (!seen.has(key)) {
-        seen.add(key);
-        result.push(food);
-      }
-    }
-    return result;
-  }, [recentFoodsRaw]);
-
-  // Favorites and added: get from daily foods
-  const favoriteFoods: FoodItem[] = dailyFoods.filter(
-    (food) => food.isFavorite
-  );
-
   // Get foods for the specified date (or today if no date param)
   const targetDate = useMemo(() => {
     if (params.date) {
@@ -124,6 +85,50 @@ export default function AddFoodScreen() {
     end.setDate(end.getDate() + 1);
     return end;
   }, [dateStart]);
+
+  // Totals for daily intake bar (all meals) - filtered by target date
+  const totals = useMemo(() => {
+    return dailyFoods
+      .filter((food) => {
+        const foodDate = new Date(food.timestamp);
+        return foodDate >= dateStart && foodDate < dateEnd;
+      })
+      .reduce(
+        (acc, f) => {
+          acc.calories += Number(f.nutrition.calories) || 0;
+          acc.protein += Number(f.nutrition.protein) || 0;
+          acc.carbs += Number(f.nutrition.carbs) || 0;
+          acc.fat += Number(f.nutrition.fat) || 0;
+          return acc;
+        },
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      );
+  }, [dailyFoods, dateStart, dateEnd]);
+
+  // Placeholder goals
+  const goals = { calories: 2000, protein: 150, carbs: 250, fat: 70 };
+  const pct = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
+
+  // Recent foods - last 100, dedupe by name+brand, most recent first
+  const recentFoodsRaw: FoodItem[] =
+    dailyFoods.length > 0 ? dailyFoods.slice(-100).reverse() : [];
+  const uniqueRecentFoods = useMemo(() => {
+    const seen = new Set<string>();
+    const result: FoodItem[] = [];
+    for (const food of recentFoodsRaw) {
+      const key = `${food.name}|${food.brand}`.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(food);
+      }
+    }
+    return result;
+  }, [recentFoodsRaw]);
+
+  // Favorites and added: get from daily foods
+  const favoriteFoods: FoodItem[] = dailyFoods.filter(
+    (food) => food.isFavorite
+  );
 
   const addedFoods: FoodItem[] = dailyFoods.filter((food) => {
     const foodDate = new Date(food.timestamp);
