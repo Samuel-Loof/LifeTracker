@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import {
   View,
   Text,
@@ -30,25 +30,64 @@ export default function AddFoodScreen() {
   // Modal state
   const [showOptionsModal, setShowOptionsModal] = useState(false);
 
+  // Search cache to avoid redundant API calls
+  const searchCacheRef = useRef<Map<string, FoodData[]>>(new Map());
+
   // API search function when the user types in the search bar
   useEffect(() => {
+    let cancelled = false;
+
     const searchAPI = async () => {
-      const trimmed = query.trim();
-      if (trimmed.length < 3) {
+      const trimmed = query.trim().toLowerCase();
+      
+      // Reduced minimum characters from 3 to 2 for faster search
+      if (trimmed.length < 2) {
         setApiResults([]);
         return;
       }
+
+      // Check cache first
+      if (searchCacheRef.current.has(trimmed)) {
+        const cached = searchCacheRef.current.get(trimmed)!;
+        if (!cancelled) {
+          setApiResults(cached);
+        }
+        return;
+      }
+
       setSearching(true);
       try {
         const results = await searchFoodByName(trimmed);
-        setApiResults(results);
+        
+        // Only update if not cancelled and we have results
+        if (!cancelled) {
+          // Cache the results (keep cache size reasonable - max 50 entries)
+          if (searchCacheRef.current.size >= 50) {
+            const firstKey = searchCacheRef.current.keys().next().value;
+            searchCacheRef.current.delete(firstKey);
+          }
+          searchCacheRef.current.set(trimmed, results);
+          setApiResults(results);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Search error:', error);
+          setApiResults([]);
+        }
       } finally {
-        setSearching(false);
+        if (!cancelled) {
+          setSearching(false);
+        }
       }
     };
 
-    const debounceTimer = setTimeout(searchAPI, 444);
-    return () => clearTimeout(debounceTimer);
+    // Reduced debounce from 444ms to 300ms for faster response
+    const debounceTimer = setTimeout(searchAPI, 300);
+    
+    return () => {
+      cancelled = true;
+      clearTimeout(debounceTimer);
+    };
   }, [query]);
 
   const mealType = Array.isArray(params.meal)

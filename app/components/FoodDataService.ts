@@ -107,23 +107,59 @@ export const isValidBarcode = (barcode: string): boolean => {
 
 export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
     try {
-      // OpenFoodFacts search endpoint
+      // OpenFoodFacts search endpoint - reduced page_size to 10 for faster response
+      // Add timeout to prevent hanging requests (8 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      
       const response = await fetch(
-        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=20`,
+        `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=10`,
         {
           headers: {
             'User-Agent': USER_AGENT
-          }
+          },
+          signal: controller.signal
         }
       );
+      
+      clearTimeout(timeoutId);
 
-      const data = await response.json();
+      // Check if response is OK
+      if (!response.ok) {
+        console.warn(`OpenFoodFacts API returned status ${response.status}`);
+        return [];
+      }
+
+      // Get response text first
+      const responseText = await response.text();
+      
+      // Check if response is HTML (starts with <) instead of JSON
+      if (responseText.trim().startsWith('<')) {
+        console.warn('OpenFoodFacts API returned HTML instead of JSON, likely rate limited or error page');
+        return [];
+      }
+
+      // Try to parse as JSON - be more lenient with content-type
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseError) {
+        // If parsing fails, check if it looks like HTML
+        if (responseText.trim().startsWith('<')) {
+          console.warn('OpenFoodFacts API returned HTML instead of JSON');
+        } else {
+          console.warn('Failed to parse response as JSON:', parseError);
+        }
+        return [];
+      }
 
       // Check if we got results
-      if (!data.products || data.products.length === 0) {
+      if (!data || !data.products || data.products.length === 0) {
         console.log('No products found for query:', query);
         return [];
       }
+
+      console.log(`Found ${data.products.length} products for query: ${query}`);
 
       // Convert API results to our FoodData format
       return data.products.map((product: any) => {
@@ -161,8 +197,15 @@ export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
         categories: categories.length > 0 ? categories : undefined,
         };
       }) .filter((food: FoodData) => food.name  !== 'Unknown Product'); // Filter out invalid results
-    } catch (error) {
-        console.error('Error searching food by name:', error);
+    } catch (error: any) {
+        // Handle different error types
+        if (error.name === 'AbortError') {
+          console.warn('Search request timed out');
+        } else if (error instanceof SyntaxError) {
+          console.warn('Failed to parse JSON response from OpenFoodFacts API');
+        } else {
+          console.error('Error searching food by name:', error);
+        }
         return [];
     }
 };

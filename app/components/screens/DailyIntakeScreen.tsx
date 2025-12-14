@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Modal,
   TouchableWithoutFeedback,
 } from "react-native";
-import { useLocalSearchParams, useRouter, Link } from "expo-router";
+import { useLocalSearchParams, useRouter, Link, useFocusEffect } from "expo-router";
 import Svg, { Circle } from "react-native-svg";
 import { useFood } from "../FoodContext";
 import MacroExplanationModal from "../helpers/MacroExplanationModal";
@@ -36,14 +36,24 @@ export default function DailyIntakeScreen() {
     return new Date();
   });
   const [showMacroExplanation, setShowMacroExplanation] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Refresh when screen comes into focus (e.g., after adding food)
+  useFocusEffect(
+    useCallback(() => {
+      // Force refresh by updating key, which will trigger recalculation
+      setRefreshKey((prev) => prev + 1);
+    }, [])
+  );
 
   // Get foods for current date and filter by meal type
+  // Include dailyFoods and refreshKey in dependencies so it updates when foods are added
   const mealFoods = useMemo(() => {
     const foodsForDate = getFoodsForDate(currentDate);
     return mealType === "all"
       ? foodsForDate
       : foodsForDate.filter((food) => food.mealType === mealType);
-  }, [getFoodsForDate, currentDate, mealType]);
+  }, [getFoodsForDate, currentDate, mealType, dailyFoods, refreshKey]);
 
   // Day navigation functions
   const goToPreviousDay = () => {
