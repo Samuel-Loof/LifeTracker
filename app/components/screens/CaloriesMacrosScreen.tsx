@@ -852,6 +852,7 @@ export default function CaloriesMacrosScreen() {
                   styles.segmentedText,
                   strategy === "lose" && styles.segmentedTextActive,
                 ]}
+                numberOfLines={1}
               >
                 Lose
               </Text>
@@ -868,6 +869,7 @@ export default function CaloriesMacrosScreen() {
                   styles.segmentedText,
                   strategy === "maintain" && styles.segmentedTextActive,
                 ]}
+                numberOfLines={1}
               >
                 Maintain
               </Text>
@@ -884,6 +886,7 @@ export default function CaloriesMacrosScreen() {
                   styles.segmentedText,
                   strategy === "gain" && styles.segmentedTextActive,
                 ]}
+                numberOfLines={1}
               >
                 Gain
               </Text>
@@ -1238,7 +1241,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     backgroundColor: "#f0f0f0",
     borderRadius: 8,
-    padding: 4,
+    padding: 3,
     marginBottom: 16,
   },
   segmentedOption: {
@@ -1247,12 +1250,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 6,
     alignItems: "center",
+    justifyContent: "center",
   },
   segmentedOptionActive: {
     backgroundColor: "#2c3e50",
   },
   segmentedText: {
-    fontSize: 16,
+    fontSize: 13,
     color: "#666",
   },
   segmentedTextActive: {
