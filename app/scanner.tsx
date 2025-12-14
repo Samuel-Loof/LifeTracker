@@ -3,6 +3,7 @@ import { View, StyleSheet, Alert } from "react-native";
 import BarcodeScanner from "./components/BarcodeScanner";
 import { getFoodData, FoodData } from "./components/FoodDataService";
 import { useLocalSearchParams, useRouter, useFocusEffect } from "expo-router";
+import { useFood } from "./components/FoodContext";
 
 export default function ScannerScreen() {
   const router = useRouter();
@@ -10,13 +11,37 @@ export default function ScannerScreen() {
   const mealParam = params.meal;
   const modeParam = params.mode; // Check if we're in recipe mode
   const [resetKey, setResetKey] = useState(0);
+  const { findFoodByBarcode } = useFood();
 
   //Function to handle when a barcode is scanned and process the food data
   const handleFoodScanned = async (barcode: string) => {
     console.log("Processing barcode:", barcode);
 
     try {
-      // Call our API service to get food information
+      // First check if we already have this food in local storage (manually added)
+      const existingFood = findFoodByBarcode(barcode);
+      if (existingFood) {
+        // Food found locally - navigate directly to FoodDetailsScreen
+        console.log("Food found in local storage:", existingFood);
+        const foodData: FoodData = {
+          barcode: existingFood.barcode || "",
+          name: existingFood.name,
+          brand: existingFood.brand,
+          calories: existingFood.nutrition.calories,
+          protein: existingFood.nutrition.protein,
+          carbs: existingFood.nutrition.carbs,
+          fat: existingFood.nutrition.fat,
+          fiber: existingFood.nutrition.fiber,
+          sugars: existingFood.nutrition.sugars,
+          saturatedFat: existingFood.nutrition.saturatedFat,
+          sodium: existingFood.nutrition.sodium,
+          potassium: existingFood.nutrition.potassium,
+        };
+        addFoodToIntake(foodData);
+        return;
+      }
+
+      // If not found locally, check API
       const foodData: FoodData | null = await getFoodData(barcode);
 
       if (foodData) {
@@ -43,7 +68,14 @@ export default function ScannerScreen() {
               text: "Yes",
               onPress: () => {
                 console.log("User chose to add manually");
-                router.push("/components/screens/ManualFoodEntry");
+                router.push({
+                  pathname: "/manual",
+                  params: {
+                    barcode: barcode,
+                    meal: mealParam || "breakfast",
+                    mode: modeParam || undefined,
+                  },
+                });
               },
             },
           ]

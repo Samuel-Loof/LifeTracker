@@ -47,7 +47,7 @@ type ScannerMode = "barcode"; // | "ai"; // AI mode commented out
 export default function AICameraScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
-  const { addFood } = useFood();
+  const { addFood, findFoodByBarcode } = useFood();
   const [facing, setFacing] = useState<CameraType>("back");
   const [permission, requestPermission] = useCameraPermissions();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -102,6 +102,56 @@ export default function AICameraScreen() {
     console.log("Processing barcode:", barcode);
 
     try {
+      // First check if we already have this food in local storage (manually added)
+      const existingFood = findFoodByBarcode(barcode);
+      if (existingFood) {
+        // Food found locally - navigate directly to FoodDetailsScreen
+        console.log("Food found in local storage:", existingFood);
+        const foodData: FoodData = {
+          barcode: existingFood.barcode || "",
+          name: existingFood.name,
+          brand: existingFood.brand,
+          calories: existingFood.nutrition.calories,
+          protein: existingFood.nutrition.protein,
+          carbs: existingFood.nutrition.carbs,
+          fat: existingFood.nutrition.fat,
+          fiber: existingFood.nutrition.fiber,
+          sugars: existingFood.nutrition.sugars,
+          saturatedFat: existingFood.nutrition.saturatedFat,
+          sodium: existingFood.nutrition.sodium,
+          potassium: existingFood.nutrition.potassium,
+        };
+        const categoriesParam = "";
+        router.push({
+          pathname: "/components/screens/FoodDetailsScreen",
+          params: {
+            name: foodData.name,
+            brand: foodData.brand,
+            calories: foodData.calories.toString(),
+            protein: foodData.protein.toString(),
+            carbs: foodData.carbs.toString(),
+            fat: foodData.fat.toString(),
+            barcode: foodData.barcode,
+            servingSize: "100g",
+            meal: mealParam || "breakfast",
+            fromScanner: "true",
+            targetMeal: mealParam || "breakfast",
+            fromAddFood: "true",
+            mode: modeParam || undefined,
+            fiber: (foodData.fiber || 0).toString(),
+            sugars: (foodData.sugars || 0).toString(),
+            saturatedFat: (foodData.saturatedFat || 0).toString(),
+            unsaturatedFat: ((foodData.fat || 0) - (foodData.saturatedFat || 0)).toString(),
+            cholesterol: "0",
+            sodium: (foodData.sodium || 0).toString(),
+            potassium: (foodData.potassium || 0).toString(),
+            category: "",
+            categories: categoriesParam,
+          },
+        });
+        return;
+      }
+
       const foodData: FoodData | null = await getFoodData(barcode);
 
       if (foodData) {
@@ -151,7 +201,14 @@ export default function AICameraScreen() {
             {
               text: "Yes",
               onPress: () => {
-                router.push("/components/screens/ManualFoodEntry");
+                router.push({
+                  pathname: "/manual",
+                  params: {
+                    barcode: barcode,
+                    meal: mealParam || "breakfast",
+                    mode: modeParam || undefined,
+                  },
+                });
               },
             },
           ]
@@ -170,6 +227,7 @@ export default function AICameraScreen() {
 
   // AI IMAGE ANALYSIS FUNCTION - COMMENTED OUT (requires paid OpenAI API)
   /* eslint-disable */
+  /*
   const analyzeImageWithAI = async (imageUri: string): Promise<AIVisionResponse | null> => {
     try {
       // Check if API key is configured
@@ -259,6 +317,7 @@ Be realistic with estimates. If you can't identify the food clearly, set confide
       throw error;
     }
   };
+  */
   /* eslint-enable */
 
   // AI CAMERA PICTURE FUNCTION - COMMENTED OUT (requires paid OpenAI API)

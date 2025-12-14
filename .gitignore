@@ -37,5 +37,8 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Google Play Service Account (contains sensitive credentials)
+google-service-account.json
+
 # typescript
 *.tsbuildinfo

@@ -83,7 +83,7 @@ export default function RootLayout() {
           />
           <Stack.Screen
             name="manual"
-            options={{ title: "Add Food Manually" }}
+            options={{ title: "Add Food" }}
           />
           <Stack.Screen
             name="components/screens/AddFoodScreen"

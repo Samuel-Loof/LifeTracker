@@ -14,7 +14,13 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.discosam.LifeTrack3r",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCameraUsageDescription": "LifeTrack3r needs access to your camera to scan food barcodes and track your nutrition.",
+        "NSPhotoLibraryUsageDescription": "LifeTrack3r needs access to your photo library to save and share your progress."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -28,7 +34,8 @@
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ],
-      "package": "com.discosam.LifeTrack3r"
+      "package": "com.discosam.LifeTrack3r",
+      "versionCode": 1
     },
     "web": {
       "favicon": "./assets/favicon.png"
