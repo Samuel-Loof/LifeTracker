@@ -1,4 +1,4 @@
-# LifeTrack3r
+# LifeTracker
 
 A comprehensive health and nutrition tracking mobile application built with React Native and Expo. Track your daily nutrition, monitor fasting periods, manage habits, and gain insights into your health journey.
 
