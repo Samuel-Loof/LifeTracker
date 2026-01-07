@@ -2,6 +2,17 @@
 
 A comprehensive health and nutrition tracking mobile application built with React Native and Expo. Track your daily nutrition, monitor fasting periods, manage habits, and gain insights into your health journey.
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/eb9e6aa5-6506-48e3-9c3d-7912eee5d9d9" width="350" />
+  <img src="https://github.com/user-attachments/assets/83a580d0-01ba-483d-97ba-643dac5bb6fe" width="350" />
+</p>
+
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/62e4cdce-bc20-4426-985f-4e0f6015b6a7" width="350" />
+  <img src="https://github.com/user-attachments/assets/1cdddff7-6bdd-4b12-864e-4f2ef6a9ceb9" width="350" />
+</p>
+
+
 ## Features
 
 ### 🍎 Nutrition Tracking
