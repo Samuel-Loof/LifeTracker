@@ -7,6 +7,7 @@ import {
   ScrollView,
   PanResponder,
   Dimensions,
+  TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useHabits, FastingSettings } from "../HabitContext";
@@ -57,7 +58,7 @@ export default function FastingScreen() {
       const sliderX = 40;
       const relativeX = moveX - sliderX;
       const percentage = Math.max(0, Math.min(1, relativeX / sliderWidth));
-      const hours = Math.round(8 + percentage * 16); // 8-24 hours
+      const hours = Math.round(8 + percentage * 16);
       handleFastingHoursChange(hours);
     },
   });
@@ -137,8 +138,6 @@ export default function FastingScreen() {
               </View>
             )}
           </View>
-
-          {/* Actions moved to bottom */}
         </View>
 
         {/* Fasting Settings */}
@@ -212,46 +211,195 @@ export default function FastingScreen() {
               </View>
 
               {/* Notification Settings */}
-              <View style={styles.settingRow}>
-                <Text style={styles.scheduleLabel}>Notifications:</Text>
-                <TouchableOpacity
-                  style={styles.toggleButton}
-                  onPress={() =>
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      notifications: !prev.notifications,
-                    }))
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.toggleText,
-                      {
-                        color: localSettings.notifications ? "#4CAF50" : "#666",
-                      },
-                    ]}
-                  >
-                    {localSettings.notifications ? "ON" : "OFF"}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {localSettings.notifications && (
+              <View style={styles.notificationSection}>
                 <View style={styles.settingRow}>
-                  <Text style={styles.scheduleLabel}>Notification Time:</Text>
+                  <Text style={styles.scheduleLabel}>Notifications:</Text>
                   <TouchableOpacity
-                    style={styles.timeButton}
-                    onPress={() => {
-                      // You can add time picker here if needed
-                      // For now, just show the current time
-                    }}
+                    style={styles.toggleButton}
+                    onPress={() =>
+                      setLocalSettings((prev) => ({
+                        ...prev,
+                        notifications: !prev.notifications,
+                      }))
+                    }
                   >
-                    <Text style={styles.timeButtonText}>
-                      {localSettings.notificationTime}
+                    <Text
+                      style={[
+                        styles.toggleText,
+                        {
+                          color: localSettings.notifications ? "#4CAF50" : "#666",
+                        },
+                      ]}
+                    >
+                      {localSettings.notifications ? "ON" : "OFF"}
                     </Text>
                   </TouchableOpacity>
                 </View>
-              )}
+
+                {localSettings.notifications && (
+                  <View style={styles.notificationOptions}>
+                    <View style={styles.notificationOption}>
+                      <View style={styles.settingRow}>
+                        <Text style={styles.notificationLabel}>
+                          Notify before start:
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.toggleButton}
+                          onPress={() =>
+                            setLocalSettings((prev) => ({
+                              ...prev,
+                              notifyBeforeStart: !prev.notifyBeforeStart,
+                            }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.toggleText,
+                              {
+                                color: localSettings.notifyBeforeStart
+                                  ? "#4CAF50"
+                                  : "#666",
+                              },
+                            ]}
+                          >
+                            {localSettings.notifyBeforeStart ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {localSettings.notifyBeforeStart && (
+                        <View style={styles.minutesInputContainer}>
+                          <Text style={styles.minutesLabel}>
+                            Minutes before (5-60):
+                          </Text>
+                          <TextInput
+                            style={styles.minutesInput}
+                            value={localSettings.notifyBeforeStartMinutes?.toString() || "15"}
+                            keyboardType="numeric"
+                            onChangeText={(text) => {
+                              const num = parseInt(text) || 15;
+                              const clamped = Math.max(5, Math.min(60, num));
+                              setLocalSettings((prev) => ({
+                                ...prev,
+                                notifyBeforeStartMinutes: clamped,
+                              }));
+                            }}
+                          />
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.notificationOption}>
+                      <View style={styles.settingRow}>
+                        <Text style={styles.notificationLabel}>
+                          Notify at start:
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.toggleButton}
+                          onPress={() =>
+                            setLocalSettings((prev) => ({
+                              ...prev,
+                              notifyAtStart: !prev.notifyAtStart,
+                            }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.toggleText,
+                              {
+                                color: localSettings.notifyAtStart
+                                  ? "#4CAF50"
+                                  : "#666",
+                              },
+                            ]}
+                          >
+                            {localSettings.notifyAtStart ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    <View style={styles.notificationOption}>
+                      <View style={styles.settingRow}>
+                        <Text style={styles.notificationLabel}>
+                          Notify before end:
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.toggleButton}
+                          onPress={() =>
+                            setLocalSettings((prev) => ({
+                              ...prev,
+                              notifyBeforeEnd: !prev.notifyBeforeEnd,
+                            }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.toggleText,
+                              {
+                                color: localSettings.notifyBeforeEnd
+                                  ? "#4CAF50"
+                                  : "#666",
+                              },
+                            ]}
+                          >
+                            {localSettings.notifyBeforeEnd ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {localSettings.notifyBeforeEnd && (
+                        <View style={styles.minutesInputContainer}>
+                          <Text style={styles.minutesLabel}>
+                            Minutes before (1-60):
+                          </Text>
+                          <TextInput
+                            style={styles.minutesInput}
+                            value={localSettings.notifyBeforeEndMinutes?.toString() || "15"}
+                            keyboardType="numeric"
+                            onChangeText={(text) => {
+                              const num = parseInt(text) || 15;
+                              const clamped = Math.max(1, Math.min(60, num));
+                              setLocalSettings((prev) => ({
+                                ...prev,
+                                notifyBeforeEndMinutes: clamped,
+                              }));
+                            }}
+                          />
+                        </View>
+                      )}
+                    </View>
+
+                    <View style={styles.notificationOption}>
+                      <View style={styles.settingRow}>
+                        <Text style={styles.notificationLabel}>
+                          Notify at end:
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.toggleButton}
+                          onPress={() =>
+                            setLocalSettings((prev) => ({
+                              ...prev,
+                              notifyAtEnd: !prev.notifyAtEnd,
+                            }))
+                          }
+                        >
+                          <Text
+                            style={[
+                              styles.toggleText,
+                              {
+                                color: localSettings.notifyAtEnd
+                                  ? "#4CAF50"
+                                  : "#666",
+                              },
+                            ]}
+                          >
+                            {localSettings.notifyAtEnd ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
         </View>
@@ -368,7 +516,6 @@ export default function FastingScreen() {
             </View>
           )}
 
-          {/* Save Button */}
           <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
             <Text style={styles.saveButtonText}>Save Settings</Text>
           </TouchableOpacity>
@@ -701,5 +848,49 @@ const styles = StyleSheet.create({
   },
   bottomSpacer: {
     height: 80,
+  },
+  notificationSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+  },
+  notificationOptions: {
+    marginTop: 12,
+    gap: 16,
+  },
+  notificationOption: {
+    backgroundColor: "#f8f9fa",
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+  },
+  notificationLabel: {
+    fontSize: 14,
+    color: "#2c3e50",
+    flex: 1,
+  },
+  minutesInputContainer: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  minutesLabel: {
+    fontSize: 12,
+    color: "#666",
+    flex: 1,
+  },
+  minutesInput: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    fontSize: 14,
+    color: "#2c3e50",
+    minWidth: 60,
+    textAlign: "center",
   },
 });

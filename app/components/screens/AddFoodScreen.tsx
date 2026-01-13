@@ -20,33 +20,26 @@ export default function AddFoodScreen() {
   const params = useLocalSearchParams();
   const { dailyFoods, addFood, clearAllFavorites, recipes } = useFood();
 
-  // Check if we're in recipe mode
   const isRecipeMode = params.mode === "recipe";
-  // Search and filters
   const [query, setQuery] = useState("");
   const [apiResults, setApiResults] = useState<FoodData[]>([]);
   const [searching, setSearching] = useState(false);
 
-  // Modal state
   const [showOptionsModal, setShowOptionsModal] = useState(false);
 
-  // Search cache to avoid redundant API calls
   const searchCacheRef = useRef<Map<string, FoodData[]>>(new Map());
 
-  // API search function when the user types in the search bar
   useEffect(() => {
     let cancelled = false;
 
     const searchAPI = async () => {
       const trimmed = query.trim().toLowerCase();
       
-      // Reduced minimum characters from 3 to 2 for faster search
       if (trimmed.length < 2) {
         setApiResults([]);
         return;
       }
 
-      // Check cache first
       if (searchCacheRef.current.has(trimmed)) {
         const cached = searchCacheRef.current.get(trimmed)!;
         if (!cancelled) {
@@ -59,9 +52,7 @@ export default function AddFoodScreen() {
       try {
         const results = await searchFoodByName(trimmed);
         
-        // Only update if not cancelled and we have results
         if (!cancelled) {
-          // Cache the results (keep cache size reasonable - max 50 entries)
           if (searchCacheRef.current.size >= 50) {
             const firstKey = searchCacheRef.current.keys().next().value;
             searchCacheRef.current.delete(firstKey);
@@ -81,7 +72,6 @@ export default function AddFoodScreen() {
       }
     };
 
-    // Reduced debounce from 444ms to 300ms for faster response
     const debounceTimer = setTimeout(searchAPI, 300);
     
     return () => {
@@ -95,13 +85,11 @@ export default function AddFoodScreen() {
     : (params.meal as string) || "all";
 
   const [selectedTab, setSelectedTab] = useState<
-    "recent" | "favorites" | "recipes" | "added"
+    "recent" | "favorites" | "recipes" |     "added"
   >("recent");
 
-  // Get foods for the specified date (or today if no date param)
   const targetDate = useMemo(() => {
     if (params.date) {
-      // Parse YYYY-MM-DD format without timezone issues
       const dateStr = params.date as string;
       const [year, month, day] = dateStr.split('-').map(Number);
       if (year && month && day) {
@@ -125,7 +113,6 @@ export default function AddFoodScreen() {
     return end;
   }, [dateStart]);
 
-  // Totals for daily intake bar (all meals) - filtered by target date
   const totals = useMemo(() => {
     return dailyFoods
       .filter((food) => {
@@ -144,11 +131,9 @@ export default function AddFoodScreen() {
       );
   }, [dailyFoods, dateStart, dateEnd]);
 
-  // Placeholder goals
   const goals = { calories: 2000, protein: 150, carbs: 250, fat: 70 };
   const pct = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
 
-  // Recent foods - last 100, dedupe by name+brand, most recent first
   const recentFoodsRaw: FoodItem[] =
     dailyFoods.length > 0 ? dailyFoods.slice(-100).reverse() : [];
   const uniqueRecentFoods = useMemo(() => {
@@ -164,7 +149,6 @@ export default function AddFoodScreen() {
     return result;
   }, [recentFoodsRaw]);
 
-  // Favorites and added: get from daily foods
   const favoriteFoods: FoodItem[] = dailyFoods.filter(
     (food) => food.isFavorite
   );
@@ -174,7 +158,6 @@ export default function AddFoodScreen() {
     return foodDate >= dateStart && foodDate < dateEnd;
   });
 
-  // Convert API FoodData -> UI FoodItem (default 1 serving)
   const mapApiToFoodItem = (f: FoodData): FoodItem => {
     const foodItem: any = {
       id: `api:${f.barcode || `${f.name}|${f.brand}`}`,
@@ -191,7 +174,6 @@ export default function AddFoodScreen() {
       timestamp: new Date(),
       mealType: mealType,
     };
-    // Preserve category information for protein quality detection
     if (f.category) foodItem.category = f.category;
     if (f.categories) foodItem.categories = f.categories;
     return foodItem as FoodItem;

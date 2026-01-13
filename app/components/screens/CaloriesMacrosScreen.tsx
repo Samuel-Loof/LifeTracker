@@ -36,21 +36,18 @@ export default function CaloriesMacrosScreen() {
   const { userGoals, setUserGoals } = useFood();
   const scrollViewRef = useRef<ScrollView>(null);
 
-  // Basic info (read-only, from userGoals)
   const [sex, setSex] = useState<Sex>("male");
   const [age, setAge] = useState<number>(30);
   const [heightCm, setHeightCm] = useState<number>(175);
   const [weightKg, setWeightKg] = useState<number>(75);
   const [activity, setActivity] = useState<ActivityLevel>("moderate");
 
-  // Goal settings
   const [strategy, setStrategy] = useState<GoalStrategy>("maintain");
   const [pace, setPace] = useState<GoalPace>("moderate");
   const [customDelta, setCustomDelta] = useState<string>("0");
   const [isEditingCalories, setIsEditingCalories] = useState(false);
   const [tempCalories, setTempCalories] = useState<string>("");
 
-  // Macro settings
   const [useManualMacros, setUseManualMacros] = useState(false);
   const [macroPreset, setMacroPreset] = useState<MacroPreset>("health");
   const [manualProtein, setManualProtein] = useState<string>("");
@@ -64,7 +61,6 @@ export default function CaloriesMacrosScreen() {
   });
   const [showMacroExplanation, setShowMacroExplanation] = useState(false);
 
-  // Load data from context
   useEffect(() => {
     if (userGoals) {
       setSex(userGoals.sex);
@@ -82,12 +78,10 @@ export default function CaloriesMacrosScreen() {
     }
   }, [userGoals]);
 
-  // Reload user goals when screen comes into focus
   useFocusEffect(
     React.useCallback(() => {
       console.log("Screen focused, reloading user goals...");
 
-      // Directly read from AsyncStorage to ensure we get the latest data
       const loadUserGoals = async () => {
         try {
           const stored = await AsyncStorage.getItem("userGoals");
@@ -121,7 +115,6 @@ export default function CaloriesMacrosScreen() {
               manualFat: goals.manualFat?.toString() || "",
             });
 
-            // Force a re-render after state is updated
             setTimeout(() => {
               setMacroUpdateKey((prev) => prev + 1);
             }, 100);
@@ -135,13 +128,11 @@ export default function CaloriesMacrosScreen() {
     }, [])
   );
 
-  // Initialize calculated macros
   useEffect(() => {
     const initialMacros = calculateMacros();
     setCalculatedMacros(initialMacros);
   }, []);
 
-  // Calculate BMR using Mifflin-St Jeor equation
   const bmr = useMemo(() => {
     if (sex === "male") {
       return 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
@@ -150,7 +141,6 @@ export default function CaloriesMacrosScreen() {
     }
   }, [sex, weightKg, heightCm, age]);
 
-  // Activity multipliers
   const activityMultipliers = {
     sedentary: 1.2,
     light: 1.375,
@@ -159,12 +149,10 @@ export default function CaloriesMacrosScreen() {
     veryActive: 1.9,
   };
 
-  // Calculate TDEE
   const tdee = useMemo(() => {
     return Math.round(bmr * activityMultipliers[activity]);
   }, [bmr, activity]);
 
-  // Calculate target calories
   const targetCalories = useMemo(() => {
     let delta = 0;
     if (strategy === "gain") {
@@ -186,7 +174,6 @@ export default function CaloriesMacrosScreen() {
     return Math.max(0, tdee + delta);
   }, [tdee, strategy, pace, customDelta]);
 
-  // Calculate macro recommendations
   const calculateMacros = () => {
     console.log(
       "Calculating macros with preset:",
@@ -196,8 +183,6 @@ export default function CaloriesMacrosScreen() {
     );
 
     const calories = targetCalories;
-
-    // Define macro constraints based on preset and strategy
     let minProteinPerKg,
       maxProteinPerKg,
       minFatPercent,

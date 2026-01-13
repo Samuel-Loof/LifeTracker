@@ -20,15 +20,12 @@ export default function DailyIntakeScreen() {
   const params = useLocalSearchParams();
   const mealType = (params.meal as string) || "all";
 
-  // Day navigation state - initialize from params if provided
   const [currentDate, setCurrentDate] = useState(() => {
     if (params.date) {
-      // Parse YYYY-MM-DD format without timezone issues
       const dateStr = params.date as string;
       const [year, month, day] = dateStr.split('-').map(Number);
       if (year && month && day) {
         const dateFromParams = new Date(year, month - 1, day);
-        // Set time to noon to avoid timezone issues
         dateFromParams.setHours(12, 0, 0, 0);
         return dateFromParams;
       }
@@ -38,16 +35,12 @@ export default function DailyIntakeScreen() {
   const [showMacroExplanation, setShowMacroExplanation] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Refresh when screen comes into focus (e.g., after adding food)
   useFocusEffect(
     useCallback(() => {
-      // Force refresh by updating key, which will trigger recalculation
       setRefreshKey((prev) => prev + 1);
     }, [])
   );
 
-  // Get foods for current date and filter by meal type
-  // Include dailyFoods and refreshKey in dependencies so it updates when foods are added
   const mealFoods = useMemo(() => {
     const foodsForDate = getFoodsForDate(currentDate);
     return mealType === "all"
@@ -55,7 +48,6 @@ export default function DailyIntakeScreen() {
       : foodsForDate.filter((food) => food.mealType === mealType);
   }, [getFoodsForDate, currentDate, mealType, dailyFoods, refreshKey]);
 
-  // Day navigation functions
   const goToPreviousDay = () => {
     const newDate = new Date(currentDate);
     newDate.setDate(newDate.getDate() - 1);
@@ -72,23 +64,19 @@ export default function DailyIntakeScreen() {
     setCurrentDate(new Date());
   };
 
-  // Pan responder for swipe gestures
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: (evt, gestureState) => {
       return Math.abs(gestureState.dx) > 20 && Math.abs(gestureState.dy) < 100;
     },
     onPanResponderRelease: (evt, gestureState) => {
       if (gestureState.dx > 50) {
-        // Swipe right - go to previous day
         goToPreviousDay();
       } else if (gestureState.dx < -50) {
-        // Swipe left - go to next day
         goToNextDay();
       }
     },
   });
 
-  // totals
   const totals = useMemo(() => {
     const foodTotals = mealFoods.reduce(
       (acc, f) => {
@@ -109,7 +97,6 @@ export default function DailyIntakeScreen() {
     return foodTotals;
   }, [mealFoods]);
 
-  // Format current date for display
   const formatDate = (date: Date) => {
     const today = new Date();
     const isToday = date.toDateString() === today.toDateString();
@@ -142,7 +129,6 @@ export default function DailyIntakeScreen() {
     });
   };
 
-  // Derive goals from userGoals
   const activityFactor: Record<string, number> = {
     sedentary: 1.2,
     light: 1.375,
@@ -209,7 +195,6 @@ export default function DailyIntakeScreen() {
   const percent = (v: number, g: number) => (g > 0 ? Math.min(v / g, 1) : 0);
   const isPremium = true;
 
-  // Calculate progress: consumed calories / goal
   const netCalories = totals.calories;
   const progress = goals.calories > 0 ? netCalories / goals.calories : 0;
 
@@ -259,7 +244,6 @@ export default function DailyIntakeScreen() {
 
   return (
     <View style={styles.container} {...panResponder.panHandlers}>
-      {/* Header with back X */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => router.back()}
@@ -271,7 +255,6 @@ export default function DailyIntakeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Big calories circle: show meal calories only */}
         <View style={styles.bigCircleWrapper}>
           <View
             style={[styles.bigCircle, { borderWidth: 0, position: "relative" }]}
@@ -322,7 +305,6 @@ export default function DailyIntakeScreen() {
           </View>
         </View>
 
-        {/* Day navigation */}
         <View style={styles.dayNavigation}>
           <TouchableOpacity onPress={goToPreviousDay} style={styles.navButton}>
             <Text style={styles.navButtonText}>‹</Text>
@@ -342,7 +324,6 @@ export default function DailyIntakeScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Foods list */}
         {mealFoods.length === 0 ? (
           <View style={styles.cardEmpty}>
             <Text style={styles.emptyText}>No food has been added yet</Text>
@@ -408,7 +389,6 @@ export default function DailyIntakeScreen() {
           ))
         )}
 
-        {/* Summary section */}
         <View style={styles.card}>
           <View style={styles.cardTitleRow}>
             <Text style={styles.cardTitle}>Summary</Text>
@@ -420,7 +400,6 @@ export default function DailyIntakeScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Calories */}
           <SummaryRow
             label="Calories"
             value={`${Math.max(0, totals.calories)} kcal`}
@@ -431,9 +410,7 @@ export default function DailyIntakeScreen() {
             color="#4CAF50"
           />
 
-          {/* Protein with quality */}
           {(() => {
-            // Calculate percentage of total calories from protein
             const proteinCalories = totals.protein * 4;
             const carbsCalories = totals.carbs * 4;
             const fatCalories = totals.fat * 9;
@@ -468,7 +445,6 @@ export default function DailyIntakeScreen() {
             );
           })()}
 
-          {/* Carbs with fiber, sugars sub-bars */}
           {(() => {
             const totalFiber = mealFoods.reduce(
               (a, f) => a + (Number(f.nutrition.fiber) || 0),
@@ -478,7 +454,6 @@ export default function DailyIntakeScreen() {
               (a, f) => a + (Number(f.nutrition.sugars) || 0),
               0
             );
-            // Calculate percentage of total calories from carbs
             const proteinCalories = totals.protein * 4;
             const carbsCalories = totals.carbs * 4;
             const fatCalories = totals.fat * 9;
@@ -552,7 +527,6 @@ export default function DailyIntakeScreen() {
             );
           })()}
 
-          {/* Fat with saturated / unsaturated sub-bars */}
           {(() => {
             const totalSaturated = mealFoods.reduce(
               (a, f) => a + (Number(f.nutrition.saturatedFat) || 0),
@@ -562,7 +536,6 @@ export default function DailyIntakeScreen() {
               (a, f) => a + (Number(f.nutrition.unsaturatedFat) || 0),
               0
             );
-            // Calculate percentage of total calories from fat
             const proteinCalories = totals.protein * 4;
             const carbsCalories = totals.carbs * 4;
             const fatCalories = totals.fat * 9;
@@ -636,7 +609,6 @@ export default function DailyIntakeScreen() {
             );
           })()}
 
-          {/* Other */}
           <View style={{ height: 8 }} />
           <Text style={styles.sectionLabel}>Other</Text>
           <SummaryRow
@@ -668,11 +640,9 @@ export default function DailyIntakeScreen() {
           />
         </View>
 
-        {/* Spacer to avoid overlap with bottom button */}
         <View style={{ height: 80 }} />
       </ScrollView>
 
-      {/* Fixed bottom button */}
       <View style={styles.fixedButtonContainer}>
         <Link
           href={`/components/screens/AddFoodScreen?meal=${mealType}&date=${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`}
@@ -684,7 +654,6 @@ export default function DailyIntakeScreen() {
         </Link>
       </View>
 
-      {/* Macro Explanation Modal */}
       <MacroExplanationModal
         visible={showMacroExplanation}
         onClose={() => setShowMacroExplanation(false)}
@@ -1030,7 +999,7 @@ const styles = StyleSheet.create({
   },
   fixedButtonContainer: {
     position: "absolute",
-    bottom: 40, // Move up to avoid phone navigation buttons
+    bottom: 40,
     left: 0,
     right: 0,
     backgroundColor: "white",

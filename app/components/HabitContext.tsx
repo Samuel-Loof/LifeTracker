@@ -21,8 +21,8 @@ export interface Habit {
   id: string;
   name: string;
   type: "alcohol" | "caffeine" | "sugar" | "custom";
-  customName?: string; // For custom habits
-  startDate: string; // ISO date string
+  customName?: string;
+  startDate: string;
   currentStreak: number;
   longestStreak: number;
   totalDays: number;
@@ -34,7 +34,7 @@ export interface Habit {
 export interface HabitEntry {
   id: string;
   habitId: string;
-  date: string; // ISO date string
+  date: string;
   status: "success" | "failure" | "skip";
   notes?: string;
 }
@@ -42,17 +42,23 @@ export interface HabitEntry {
 export interface FastingSettings {
   fastingHours: number;
   eatingWindowHours: number;
-  startTime: string; // HH:MM format
+  startTime: string;
   isActive: boolean;
   notifications: boolean;
-  notificationTime: string; // HH:MM format for when to send fasting reminders
+  notificationTime: string; // Deprecated, kept for backward compatibility
+  notifyBeforeStart: boolean;
+  notifyBeforeStartMinutes: number;
+  notifyAtStart: boolean;
+  notifyBeforeEnd: boolean;
+  notifyBeforeEndMinutes: number;
+  notifyAtEnd: boolean;
 }
 
 export interface FastingSession {
   id: string;
-  startTime: string; // ISO datetime
-  endTime?: string; // ISO datetime
-  duration: number; // in hours
+  startTime: string;
+  endTime?: string;
+  duration: number;
   completed: boolean;
   notes?: string;
 }
@@ -60,27 +66,26 @@ export interface FastingSession {
 export interface SupplementReminder {
   id: string;
   name: string;
-  time: string; // HH:MM format
+  time: string;
   isActive: boolean;
   isCustom: boolean;
 }
 
 export interface StreakNotificationSettings {
   enabled: boolean;
-  time: string; // HH:MM format
-  milestones: number[]; // Which streak milestones to notify about (e.g., [3, 7, 14, 30])
+  time: string;
+  milestones: number[];
 }
 
 export interface Todo {
   id: string;
   text: string;
   completed: boolean;
-  createdAt: string; // ISO date string
-  completedAt?: string; // ISO date string
+  createdAt: string;
+  completedAt?: string;
 }
 
 export interface HabitContextType {
-  // Habits
   habits: Habit[];
   habitEntries: HabitEntry[];
   addHabit: (
@@ -102,7 +107,6 @@ export interface HabitContextType {
   getTotalDays: (habitId: string) => number;
   getHabitEntriesForDate: (habitId: string, date: string) => HabitEntry[];
 
-  // Fasting
   fastingSettings: FastingSettings;
   fastingSessions: FastingSession[];
   updateFastingSettings: (settings: Partial<FastingSettings>) => Promise<void>;
@@ -110,19 +114,15 @@ export interface HabitContextType {
   endFastingSession: () => Promise<void>;
   getCurrentFastingSession: () => FastingSession | null;
 
-  // Streak Notifications
   streakNotificationSettings: StreakNotificationSettings;
   updateStreakNotificationSettings: (
     settings: Partial<StreakNotificationSettings>
   ) => Promise<void>;
 
-  // Notifications
   scheduleHabitNotification: (habitId: string, days: number) => Promise<void>;
   cancelHabitNotification: (habitId: string) => Promise<void>;
-  // Debug helpers
   testFastingNotifications: () => Promise<void>;
   testStreakNotifications: (habitId: string) => Promise<void>;
-  // Notification helpers
   ensureNotificationsEnabled: (interactive?: boolean) => Promise<boolean>;
   getNotificationPermissions: () => Promise<{
     granted: boolean;
@@ -130,7 +130,6 @@ export interface HabitContextType {
     status?: string;
   }>;
 
-  // Supplement Reminders
   supplementReminders: SupplementReminder[];
   addSupplementReminder: (
     reminder: Omit<SupplementReminder, "id">
@@ -142,21 +141,17 @@ export interface HabitContextType {
   ) => Promise<void>;
   cancelSupplementNotification: (reminderId: string) => Promise<void>;
 
-  // Todos
   todos: Todo[];
   addTodo: (todo: Omit<Todo, "id">) => Promise<void>;
   updateTodo: (todo: Todo) => Promise<void>;
   deleteTodo: (id: string) => Promise<void>;
 }
 
-// Create context
 const HabitContext = createContext<HabitContextType | undefined>(undefined);
 
-// Provider component
 export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  // State
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitEntries, setHabitEntries] = useState<HabitEntry[]>([]);
   const [fastingSettings, setFastingSettings] = useState<FastingSettings>({
@@ -166,6 +161,12 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     isActive: false,
     notifications: true,
     notificationTime: "09:00",
+    notifyBeforeStart: true,
+    notifyBeforeStartMinutes: 15,
+    notifyAtStart: true,
+    notifyBeforeEnd: true,
+    notifyBeforeEndMinutes: 15,
+    notifyAtEnd: true,
   });
   const [streakNotificationSettings, setStreakNotificationSettings] =
     useState<StreakNotificationSettings>({
@@ -180,7 +181,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
   const [todos, setTodos] = useState<Todo[]>([]);
   const [appState, setAppState] = useState<string>(AppState.currentState);
 
-  // Load data from AsyncStorage on mount
   useEffect(() => {
     loadData();
   }, []);
@@ -214,7 +214,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
           Notifications.setNotificationChannelAsync
         ) {
           try {
-            // High-importance channel for visible pop-up notifications
             await Notifications.setNotificationChannelAsync("high", {
               name: "High Importance",
               importance: Notifications.AndroidImportance.HIGH,
@@ -223,7 +222,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
               sound: true,
             });
 
-            // Supplements channel
             await Notifications.setNotificationChannelAsync("supplements", {
               name: "Supplement Reminders",
               importance: Notifications.AndroidImportance.HIGH,
@@ -232,7 +230,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
               sound: true,
             });
 
-            // Keep default channel as fallback
             await Notifications.setNotificationChannelAsync("default", {
               name: "Default",
               importance: Notifications.AndroidImportance.DEFAULT,
@@ -310,7 +307,17 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
       if (fastingData) {
-        setFastingSettings(JSON.parse(fastingData));
+        const loaded = JSON.parse(fastingData);
+        // Handle backward compatibility - add new notification fields if missing
+        setFastingSettings({
+          ...loaded,
+          notifyBeforeStart: loaded.notifyBeforeStart ?? true,
+          notifyBeforeStartMinutes: loaded.notifyBeforeStartMinutes ?? 15,
+          notifyAtStart: loaded.notifyAtStart ?? true,
+          notifyBeforeEnd: loaded.notifyBeforeEnd ?? true,
+          notifyBeforeEndMinutes: loaded.notifyBeforeEndMinutes ?? 15,
+          notifyAtEnd: loaded.notifyAtEnd ?? true,
+        });
       }
       if (sessionsData) {
         setFastingSessions(JSON.parse(sessionsData));
@@ -327,9 +334,7 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         try {
           const parsed = JSON.parse(streakNotificationData);
           setStreakNotificationSettings(parsed);
-        } catch {
-          // Keep default settings
-        }
+        } catch {}
       }
       if (todosData) {
         try {
@@ -344,7 +349,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Habit management functions
   const addHabit = async (
     habitData: Omit<
       Habit,
@@ -367,7 +371,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       return updated;
     });
 
-    // schedule default milestone notifications
     try {
       await scheduleDefaultHabitMilestones(newHabit);
     } catch (e) {
@@ -386,7 +389,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       return updated;
     });
 
-    // if startDate changed, reschedule milestones
     try {
       const target = habits.find((h) => h.id === id);
       const newStart = updates.startDate;
@@ -411,7 +413,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       return updated;
     });
 
-    // Also delete related entries
     setHabitEntries((prev) => {
       const updated = prev.filter((entry) => entry.habitId !== id);
       AsyncStorage.setItem("habitEntries", JSON.stringify(updated)).catch(
@@ -435,7 +436,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       return updated;
     });
 
-    // Update habit streaks
     updateHabitStreaks(entryData.habitId);
   };
 
@@ -476,11 +476,9 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       );
       return updated;
     });
-    // Update streaks after change
     updateHabitStreaks(habitId);
   };
 
-  // Helper: ISO date for today
   const formatISODate = (date: Date): string => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, "0");
@@ -511,12 +509,10 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     autoMarkTodayForActiveHabits();
   }, [habits]);
 
-  // Streak calculation functions
   const getCurrentStreak = (habitId: string): number => {
     const habit = habits.find((h) => h.id === habitId);
     if (!habit) return 0;
 
-    // Build quick lookup maps for day statuses
     const entries = habitEntries.filter((e) => e.habitId === habitId);
     const successByDate = new Set<string>();
     const skipByDate = new Set<string>();
@@ -525,7 +521,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       if (e.status === "skip") skipByDate.add(e.date);
     }
 
-    // Helper to format a date to ISO yyyy-mm-dd
     const toISO = (d: Date) => {
       const y = d.getFullYear();
       const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -533,7 +528,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       return `${y}-${m}-${dd}`;
     };
 
-    // Start from today; if today is skip, move back until we hit a non-skip day
     const cursor = new Date();
     cursor.setHours(0, 0, 0, 0);
     while (true) {
@@ -542,7 +536,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       cursor.setDate(cursor.getDate() - 1);
     }
 
-    // Count consecutive success days ending at the last non-skip day
     let streak = 0;
     while (true) {
       const iso = toISO(cursor);
@@ -661,7 +654,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       return updated;
     });
 
-    // schedule fasting notifications: start, 15m before end, end
     try {
       await scheduleFastingNotifications(newSession);
     } catch (e) {
@@ -701,7 +693,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
   const getCurrentFastingSession = (): FastingSession | null => {
     const activeSession = fastingSessions.find((session) => !session.completed);
 
-    // Auto-cycle: if no active session but fasting is enabled, check if we should start a new cycle
     if (!activeSession && fastingSettings.isActive) {
       const now = new Date();
       const lastSession = fastingSessions
@@ -721,13 +712,11 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
             fastingSettings.eatingWindowHours * 60 * 60 * 1000
         );
 
-        // If eating window has ended, auto-start new fasting session
         if (now >= eatingWindowEnd) {
           startFastingSession();
           return fastingSessions.find((session) => !session.completed) || null;
         }
       } else {
-        // No previous sessions, start immediately if fasting is active
         startFastingSession();
         return fastingSessions.find((session) => !session.completed) || null;
       }
@@ -736,9 +725,8 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     return activeSession || null;
   };
 
-  // Notification helpers
   const notificationStoreKey = "habitNotificationIds";
-  const fastingNotificationStoreKey = "fastingNotificationIds"; // sessionId -> ids
+  const fastingNotificationStoreKey = "fastingNotificationIds";
 
   const getNotificationPermissions = async () => {
     try {
@@ -862,61 +850,90 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   const scheduleFastingNotifications = async (session: FastingSession) => {
+    if (!fastingSettings.notifications) {
+      return;
+    }
+
     const start = new Date(session.startTime);
     const end = new Date(start.getTime() + session.duration * 60 * 60 * 1000);
-    const preEnd = new Date(end.getTime() - 15 * 60 * 1000);
+    const now = new Date();
 
     const ids: string[] = [];
-    const idStart = await Notifications.scheduleNotificationAsync({
-      content: {
-        title: "Fasting started",
-        body: `Your ${session.duration}h fast is underway.`,
-        sound: null,
-      },
-      trigger: start,
-    });
-    ids.push(idStart);
-    if (preEnd.getTime() > Date.now()) {
-      const idPre = await Notifications.scheduleNotificationAsync({
+
+    if (fastingSettings.notifyBeforeStart) {
+      const beforeStartMinutes = Math.max(5, Math.min(60, fastingSettings.notifyBeforeStartMinutes || 15));
+      const beforeStart = new Date(start.getTime() - beforeStartMinutes * 60 * 1000);
+      if (beforeStart.getTime() > now.getTime()) {
+        const idBeforeStart = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Fasting starting soon",
+            body: `Your ${session.duration}h fast will start in ${beforeStartMinutes} minutes.`,
+            sound: null,
+          },
+          trigger: beforeStart,
+        });
+        ids.push(idBeforeStart);
+      }
+    }
+
+    if (fastingSettings.notifyAtStart && start.getTime() > now.getTime()) {
+      const idStart = await Notifications.scheduleNotificationAsync({
         content: {
-          title: "Fasting ending soon",
-          body: "15 minutes remaining.",
+          title: "Fasting started",
+          body: `Your ${session.duration}h fast is underway.`,
           sound: null,
         },
-        trigger: preEnd,
+        trigger: start,
       });
-      ids.push(idPre);
+      ids.push(idStart);
     }
-    if (end.getTime() > Date.now()) {
+
+    if (fastingSettings.notifyBeforeEnd) {
+      const beforeEndMinutes = Math.max(1, Math.min(60, fastingSettings.notifyBeforeEndMinutes || 15));
+      const preEnd = new Date(end.getTime() - beforeEndMinutes * 60 * 1000);
+      if (preEnd.getTime() > now.getTime()) {
+        const idPre = await Notifications.scheduleNotificationAsync({
+          content: {
+            title: "Fasting ending soon",
+            body: `${beforeEndMinutes} minute${beforeEndMinutes !== 1 ? 's' : ''} remaining.`,
+            sound: null,
+          },
+          trigger: preEnd,
+        });
+        ids.push(idPre);
+      }
+    }
+
+    if (fastingSettings.notifyAtEnd && end.getTime() > now.getTime()) {
       const idEnd = await Notifications.scheduleNotificationAsync({
-        content: { title: "Fasting complete", body: "Great job!", sound: null },
+        content: { 
+          title: "Fasting complete", 
+          body: "Great job! Your fast is complete.", 
+          sound: null 
+        },
         trigger: end,
       });
       ids.push(idEnd);
     }
+
     await setFastingNotificationIds(session.id, ids);
   };
 
-  // DEBUG: schedule second-scale test notifications for fasting
   const testFastingNotifications = async () => {
     try {
-      // Check permissions first
       const settings = await Notifications.getPermissionsAsync();
       console.log("Test fasting notifications - permissions:", settings);
 
       if (!settings.granted) {
         console.warn("Notifications not granted, requesting...");
 
-        // Try different permission request approaches for Android
         let result;
 
         if (Platform.OS === "android") {
-          // For Android, try requesting without specific settings first
           result = await Notifications.requestPermissionsAsync();
           console.log("Android basic request result:", result);
 
           if (!result.granted) {
-            // Try with Android-specific settings
             result = await Notifications.requestPermissionsAsync({
               android: {
                 allowAlert: true,
@@ -930,7 +947,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
             console.log("Android detailed request result:", result);
           }
         } else {
-          // iOS approach
           result = await Notifications.requestPermissionsAsync({
             ios: {
               allowAlert: true,
@@ -957,15 +973,12 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      // Clear any previously scheduled notifications to avoid multiple overlapping test toasts
       try {
         await Notifications.cancelAllScheduledNotificationsAsync();
         console.log("Cleared previously scheduled notifications");
       } catch {}
 
-      console.log(
-        "Scheduling single high-importance test notification (10s)..."
-      );
+      console.log("Scheduling test notification (10s)...");
 
       const id = await Notifications.scheduleNotificationAsync({
         content: {
@@ -984,7 +997,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // DEBUG: schedule second-scale test notifications for habit milestones
   const testStreakNotifications = async (habitId: string) => {
     const habit = habits.find((h) => h.id === habitId);
     if (!habit) {
@@ -993,7 +1005,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      // Check permissions first
       const settings = await Notifications.getPermissionsAsync();
       console.log("Test streak notifications - permissions:", settings);
 
@@ -1006,10 +1017,9 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         }
       }
 
-      // Clear any previously scheduled test notifications
       try {
         await Notifications.cancelAllScheduledNotificationsAsync();
-        console.log("Cleared previously scheduled notifications (streak test)");
+        console.log("Cleared previously scheduled notifications");
       } catch {}
 
       console.log(
@@ -1076,7 +1086,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     await writeNotificationStore(fastingNotificationStoreKey, map);
   };
 
-  // Notification store helpers
   type IdMap = { [key: string]: string[] };
   const readNotificationStore = async (key: string): Promise<IdMap> => {
     try {
@@ -1109,7 +1118,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     await writeNotificationStore(fastingNotificationStoreKey, map);
   };
 
-  // Supplement Reminder functions
   const addSupplementReminder = async (
     reminderData: Omit<SupplementReminder, "id">
   ) => {
@@ -1125,7 +1133,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       JSON.stringify(updatedReminders)
     );
 
-    // Schedule notification if active
     if (newReminder.isActive) {
       await scheduleSupplementNotification(newReminder);
     }
@@ -1142,22 +1149,17 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       JSON.stringify(updatedReminders)
     );
 
-    // Handle notification scheduling/canceling
     if (oldReminder?.isActive && !reminder.isActive) {
-      // Was active, now inactive - cancel notification
       await cancelSupplementNotification(reminder.id);
     } else if (!oldReminder?.isActive && reminder.isActive) {
-      // Was inactive, now active - schedule notification
       await scheduleSupplementNotification(reminder);
     } else if (reminder.isActive && oldReminder?.time !== reminder.time) {
-      // Time changed - cancel old and schedule new
       await cancelSupplementNotification(reminder.id);
       await scheduleSupplementNotification(reminder);
     }
   };
 
   const deleteSupplementReminder = async (id: string) => {
-    // Cancel notification before deleting
     await cancelSupplementNotification(id);
 
     const updatedReminders = supplementReminders.filter((r) => r.id !== id);
@@ -1179,7 +1181,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
       const scheduledTime = new Date();
       scheduledTime.setHours(hours, minutes, 0, 0);
 
-      // If the time has already passed today, schedule for tomorrow
       if (scheduledTime <= now) {
         scheduledTime.setDate(scheduledTime.getDate() + 1);
       }
@@ -1194,7 +1195,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
         trigger: scheduledTime,
       });
 
-      // Store notification ID for potential cancellation
       await appendNotificationId(
         "supplementNotifications",
         reminder.id,
@@ -1222,7 +1222,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Todo functions
   const addTodo = async (todoData: Omit<Todo, "id">) => {
     const newTodo: Todo = {
       ...todoData,
@@ -1290,7 +1289,6 @@ export const HabitProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-// Hook to use the context
 export const useHabits = () => {
   const context = useContext(HabitContext);
   if (context === undefined) {

@@ -10,16 +10,15 @@ export interface FoodData {
     sugars?: number;
     saturatedFat?: number;
     unsaturatedFat?: number;
-    cholesterol?: number; // mg per 100g if available
-    sodium?: number; // mg per 100g
-    potassium?: number; // mg per 100g
-    servingSize?: string; // "78 g", "1 cup", etc.
+    cholesterol?: number;
+    sodium?: number;
+    potassium?: number;
+    servingSize?: string;
     caloriesPerServing?: number;
     category?: string; // Main category from OpenFoodFacts
-    categories?: string[]; // All categories from OpenFoodFacts
+    categories?: string[];
 }
 
-// User-Agent required by OpenFoodFacts API
 const USER_AGENT = 'LifeTrack3r/1.0 (learning.project@gmail.com)';
 
 export const getFoodData = async (barcode: string): Promise<FoodData | null> => {
@@ -28,25 +27,21 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
             `https://world.openfoodfacts.org/api/v2/product/${barcode}.json`,
             {
                 headers: {
-                    'User-Agent': USER_AGENT // Required to avoid being blocked
+                    'User-Agent': USER_AGENT
                 }
             }
         );
         
-        // Parse the JSON response
         const data = await response.json();
         
-        // Check if product exists (status 0 = not found, 1 = found)
         if (data.status === 0) {
             console.log('Product not found for barcode:', barcode);
             return null;
         }
 
-        // Extract nutrition data from the complex API response
         const product = data.product;
-        const nutriments = product.nutriments || {}; // Handle case where nutrition data is missing
+        const nutriments = product.nutriments || {};
         
-        // Extract categories
         const categories: string[] = [];
         if (product.categories) categories.push(product.categories);
         if (product.categories_en) categories.push(product.categories_en);
@@ -70,7 +65,7 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         saturatedFat: nutriments['saturated-fat_100g'] || nutriments.saturated_fat_100g || 0,
         unsaturatedFat: (nutriments.fat_100g || 0) - (nutriments['saturated-fat_100g'] || 0),
         cholesterol: nutriments.cholesterol_100g || 0,
-        sodium: nutriments.sodium_100g ? Math.round(nutriments.sodium_100g * 1000) : 0, // g -> mg
+        sodium: nutriments.sodium_100g ? Math.round(nutriments.sodium_100g * 1000) : 0,
         potassium: nutriments.potassium_100g ? Math.round(nutriments.potassium_100g * 1000) : 0,
         servingSize: product.serving_size || undefined,
         caloriesPerServing: nutriments.energy_kcal_serving || undefined,
@@ -78,7 +73,6 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
         categories: categories.length > 0 ? categories : undefined,
     };
 
-    // Debug logging for micronutrients
     console.log('Food data micronutrients:', {
         fiber: foodData.fiber,
         sugars: foodData.sugars,
@@ -92,23 +86,18 @@ export const getFoodData = async (barcode: string): Promise<FoodData | null> => 
     return foodData;
 
     } catch (error) {
-        // Handle network errors, parsing errors, etc.
         console.error('Error fetching food data:', error);
         return null;
     }
 };
 
-// Helper function to validate barcode format
 export const isValidBarcode = (barcode: string): boolean => {
-    // Remove any non-digit characters and check length
     const cleanBarcode = barcode.replace(/[^0-9]/g, '');
     return cleanBarcode.length >= 8 && cleanBarcode.length <= 13;
 };
 
 export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
     try {
-      // OpenFoodFacts search endpoint - reduced page_size to 10 for faster response
-      // Add timeout to prevent hanging requests (8 seconds)
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
@@ -124,27 +113,22 @@ export const searchFoodByName = async (query: string): Promise<FoodData[]> => {
       
       clearTimeout(timeoutId);
 
-      // Check if response is OK
       if (!response.ok) {
         console.warn(`OpenFoodFacts API returned status ${response.status}`);
         return [];
       }
 
-      // Get response text first
       const responseText = await response.text();
       
-      // Check if response is HTML (starts with <) instead of JSON
       if (responseText.trim().startsWith('<')) {
         console.warn('OpenFoodFacts API returned HTML instead of JSON, likely rate limited or error page');
         return [];
       }
 
-      // Try to parse as JSON - be more lenient with content-type
       let data;
       try {
         data = JSON.parse(responseText);
       } catch (parseError) {
-        // If parsing fails, check if it looks like HTML
         if (responseText.trim().startsWith('<')) {
           console.warn('OpenFoodFacts API returned HTML instead of JSON');
         } else {

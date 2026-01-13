@@ -1,20 +1,9 @@
 import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 
-interface HomeScreenProps {
-  // You'll likely add props like:
-  // userData: UserProfile;
-  // dailyProgress: ProgressData;
-  // onNavigate: (screen: string) => void;
-}
+interface HomeScreenProps {}
 
 const HomeScreen: React.FC<HomeScreenProps> = () => {
-  // You'll add state and logic for:
-  // - Fetching user data
-  // - Tracking progress
-  // - Handling navigation
-  // - Calculating metrics
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome Back!</Text>

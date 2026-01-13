@@ -7,7 +7,6 @@ import React, {
 } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Define types
 export interface FoodItem {
   id: string;
   name: string;
@@ -24,13 +23,13 @@ export interface FoodItem {
     sugars?: number;
     saturatedFat?: number;
     unsaturatedFat?: number;
-    cholesterol?: number; // mg
-    sodium?: number; // mg
-    potassium?: number; // mg
+    cholesterol?: number;
+    sodium?: number;
+    potassium?: number;
   };
-  proteinQuality?: number; // PDCAAS/DIAAS-style 0..1 estimate
-  category?: string; // Main category for protein quality detection
-  categories?: string[]; // All categories for protein quality detection
+  proteinQuality?: number;
+  category?: string;
+  categories?: string[];
   timestamp: Date;
   mealType: string;
   isFavorite?: boolean;
@@ -55,13 +54,13 @@ export interface RecipeIngredient {
 }
 
 export interface WaterSettings {
-  dailyGoal: number; // in liters
-  containerType: "glass" | "bottle"; // glass = 0.25L, bottle = 0.5L
+  dailyGoal: number;
+  containerType: "glass" | "bottle";
 }
 
 export interface WaterIntake {
   id: string;
-  amount: number; // in liters
+  amount: number;
   timestamp: Date;
 }
 
@@ -69,9 +68,9 @@ export interface Exercise {
   id: string;
   name: string;
   caloriesBurned: number;
-  duration?: number; // in minutes
+  duration?: number;
   timestamp: Date;
-  isFromAPI?: boolean; // true if from Nutritionix API
+  isFromAPI?: boolean;
 }
 
 export interface Recipe {
@@ -122,31 +121,29 @@ export type GoalPace = "slow" | "moderate" | "custom";
 export interface UserGoals {
   firstName?: string;
   sex: Sex;
-  age: number; // years
+  age: number;
   heightCm: number;
   weightKg: number;
   activity: ActivityLevel;
 
-  strategy: GoalStrategy; // maintain/gain/lose
-  pace: GoalPace; // slow/moderate/custom
-  manualCalorieDelta?: number; // +/- kcal per day when pace==custom
+  strategy: GoalStrategy;
+  pace: GoalPace;
+  manualCalorieDelta?: number;
 
   useManualCalories: boolean;
-  manualCalories?: number; // direct override target kcal
+  manualCalories?: number;
 
-  cuttingKeepMuscle: boolean; // toggles 2g/kg protein suggestion
+  cuttingKeepMuscle: boolean;
 
   useManualMacros: boolean;
   manualProtein?: number;
   manualCarbs?: number;
   manualFat?: number;
 
-  // Protein quality targets
-  minAverageProteinQuality?: number; // e.g., 0.9
-  minHighQualityProteinPercent?: number; // e.g., 75 (% of protein grams from quality >= threshold)
+  minAverageProteinQuality?: number;
+  minHighQualityProteinPercent?: number;
 
-  // Units
-  useImperialUnits: boolean; // true for lbs/ft, false for kg/cm
+  useImperialUnits: boolean;
 }
 
 export interface HabitsState {
@@ -197,7 +194,6 @@ interface FoodContextType {
   fasting: FastingSettings;
   setFasting: (update: Partial<FastingSettings>) => Promise<void>;
 
-  // Water tracking
   waterSettings: WaterSettings;
   waterIntakes: WaterIntake[];
   updateWaterSettings: (settings: WaterSettings) => Promise<void>;
@@ -205,12 +201,10 @@ interface FoodContextType {
   removeWaterIntake: (id: string) => void;
   removeWaterIntakeByAmount: (amount: number) => void;
   getTodayWaterIntake: () => number;
-  // Date-scoped helpers
   addWaterIntakeForDate: (amount: number, date: Date) => void;
   removeWaterIntakeByAmountForDate: (amount: number, date: Date) => void;
   getWaterIntakeForDate: (date: Date) => number;
 
-  // Exercise tracking
   exercises: Exercise[];
   addExercise: (exercise: Exercise) => void;
   updateExercise: (exerciseId: string, updates: Partial<Exercise>) => void;
@@ -218,22 +212,18 @@ interface FoodContextType {
   getExercisesForDate: (date: Date) => Exercise[];
   getTotalCaloriesBurnedForDate: (date: Date) => number;
 
-  // Weight tracking
   weightHistory: WeightEntry[];
   addWeightEntry: (weightKg: number, notes?: string) => Promise<void>;
   removeWeightEntry: (id: string) => Promise<void>;
   getWeightHistory: (days?: number) => WeightEntry[];
 }
 
-// Create context
 const FoodContext = createContext<FoodContextType | undefined>(undefined);
 
-// Provider props interface
 interface FoodProviderProps {
   children: ReactNode;
 }
 
-// Conversion functions
 export const convertKgToLbs = (kg: number): number => kg * 2.20462;
 export const convertLbsToKg = (lbs: number): number => lbs / 2.20462;
 export const convertCmToFtIn = (
@@ -264,8 +254,8 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     notifyAtStart: false,
   });
   const [waterSettings, setWaterSettingsState] = useState<WaterSettings>({
-    dailyGoal: 3.0, // 3L default
-    containerType: "glass", // 0.25L default
+    dailyGoal: 3.0,
+    containerType: "glass",
   });
   const [waterIntakes, setWaterIntakes] = useState<WaterIntake[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
@@ -297,7 +287,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
       const stored = await AsyncStorage.getItem("recipes");
       if (stored) {
         const parsedRecipes = JSON.parse(stored);
-        // Convert createdAt strings back to Date objects
         const recipesWithDates = parsedRecipes.map((recipe: any) => ({
           ...recipe,
           createdAt: new Date(recipe.createdAt),
@@ -310,23 +299,18 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const addFood = async (food: FoodItem) => {
-    // Use functional update to avoid race conditions
     setDailyFoods((prevDailyFoods) => {
-      // Allow adding the same food multiple times, but prevent duplicate favorites
-      // If this food is being added as a favorite, check if it's already favorited
       if (food.isFavorite && food.barcode) {
         const existingFavorite = prevDailyFoods.find(
           (f) => f.barcode === food.barcode && f.isFavorite
         );
         if (existingFavorite) {
           console.log("Food with barcode already favorited:", food.barcode);
-          // Remove the favorite flag from the new food since it's already favorited
           food.isFavorite = false;
         }
       }
 
       const updated = [...prevDailyFoods, food];
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving daily foods:", error);
@@ -340,7 +324,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   const removeFood = async (foodId: string) => {
     setDailyFoods((prevDailyFoods) => {
       const updated = prevDailyFoods.filter((food) => food.id !== foodId);
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving daily foods:", error);
@@ -353,7 +336,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   const updateFood = async (food: FoodItem) => {
     setDailyFoods((prevDailyFoods) => {
       const updated = prevDailyFoods.map((f) => (f.id === food.id ? food : f));
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving daily foods:", error);
@@ -380,7 +362,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
       const updated = prevDailyFoods.map((food) =>
         food.id === foodId ? { ...food, isFavorite: !food.isFavorite } : food
       );
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("dailyFoods", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving daily foods:", error);
@@ -391,20 +372,17 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const toggleFavoriteByBarcode = async (barcode: string) => {
-    // Check if any food with this barcode is currently favorited
     const favoritedFood = dailyFoods.find(
       (food) => food.barcode === barcode && food.isFavorite
     );
 
     if (favoritedFood) {
-      // If there's a favorited food with this barcode, unfavorite ALL foods with this barcode
       const updated = dailyFoods.map((food) =>
         food.barcode === barcode ? { ...food, isFavorite: false } : food
       );
       setDailyFoods(updated);
       await AsyncStorage.setItem("dailyFoods", JSON.stringify(updated));
     } else {
-      // If no favorited food with this barcode, favorite the first one we find
       const firstFood = dailyFoods.find((food) => food.barcode === barcode);
       if (firstFood) {
         const updated = dailyFoods.map((food) =>
@@ -530,19 +508,15 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   };
 
   const updateWaterSettings = async (settings: WaterSettings) => {
-    // Check if container type is changing
     const containerTypeChanged = waterSettings.containerType !== settings.containerType;
     
     if (containerTypeChanged) {
-      // Get today's water intake
       const today = new Date();
       today.setHours(12, 0, 0, 0);
       const todayIntake = getWaterIntakeForDate(today);
       
-      // Determine the increment for the new container type
       const newIncrement = settings.containerType === "glass" ? 0.25 : 0.5;
       
-      // Round down to the nearest valid increment
       const roundedIntake = Math.floor(todayIntake / newIncrement) * newIncrement;
       
       console.log(
@@ -550,7 +524,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         `Today's intake: ${todayIntake}L, rounded down to: ${roundedIntake}L`
       );
       
-      // Remove all today's water intakes
       const todayStart = new Date(today);
       todayStart.setHours(0, 0, 0, 0);
       const todayEnd = new Date(todayStart);
@@ -562,7 +535,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
           return !(intakeDate >= todayStart && intakeDate < todayEnd);
         });
         
-        // Add back the rounded-down amount if it's greater than 0
         if (roundedIntake > 0) {
           const newIntake: WaterIntake = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -603,7 +575,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     };
     setWaterIntakes((prev) => {
       const updated = [...prev, newIntake];
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving water intakes:", error);
@@ -635,7 +606,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   const removeWaterIntake = (id: string) => {
     setWaterIntakes((prev) => {
       const updated = prev.filter((intake) => intake.id !== id);
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving water intakes:", error);
@@ -651,7 +621,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
 
   const removeWaterIntakeByAmountForDate = (amount: number, date: Date) => {
     setWaterIntakes((prev) => {
-      // Find the most recent intake with the specified amount
       const today = new Date(date);
       today.setHours(0, 0, 0, 0);
       const tomorrow = new Date(today);
@@ -667,18 +636,15 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         todayIntakes.map((i) => ({ amount: i.amount, id: i.id }))
       );
 
-      // First try to find exact matches
       let matchingIntakes = todayIntakes.filter(
         (intake) => intake.amount === amount
       );
 
-      // If no exact matches and we're trying to remove 0.5L, try to remove two 0.25L intakes
       if (matchingIntakes.length === 0 && amount === 0.5) {
         const smallIntakes = todayIntakes.filter(
           (intake) => intake.amount === 0.25
         );
         if (smallIntakes.length >= 2) {
-          // Remove the two most recent 0.25L intakes
           const sortedSmallIntakes = smallIntakes.sort(
             (a, b) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -697,25 +663,21 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
             }
           );
           return updated;
-        }
       }
+    }
 
-      // If no exact matches and we're trying to remove 0.5L, try to split a larger intake
-      if (matchingIntakes.length === 0 && amount === 0.5) {
-        // Look for intakes > 0.5L (we already checked for exact 0.5L matches and two 0.25L)
-        const largeIntakes = todayIntakes.filter(
-          (intake) => intake.amount > 0.5
+    if (matchingIntakes.length === 0 && amount === 0.5) {
+      const largeIntakes = todayIntakes.filter(
+        (intake) => intake.amount > 0.5
+      );
+      if (largeIntakes.length > 0) {
+        const sortedLargeIntakes = largeIntakes.sort(
+          (a, b) =>
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
         );
-        if (largeIntakes.length > 0) {
-          // Find the most recent large intake
-          const sortedLargeIntakes = largeIntakes.sort(
-            (a, b) =>
-              new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-          const toSplit = sortedLargeIntakes[0];
-          
-          // Split the larger intake (e.g., 1.0L → 0.5L)
-          console.log(
+        const toSplit = sortedLargeIntakes[0];
+        
+        console.log(
             `Splitting ${toSplit.amount}L intake to remove 0.5L:`,
             toSplit.id
           );
@@ -736,18 +698,15 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
             }
           );
           return updated;
-        }
       }
+    }
 
-      // If no exact matches and we're trying to remove 0.25L, try to split a larger intake
-      if (matchingIntakes.length === 0 && amount === 0.25) {
-        // First try to split a 0.5L intake (this was the original logic)
-        const halfLiterIntakes = todayIntakes.filter(
-          (intake) => intake.amount === 0.5
-        );
-        if (halfLiterIntakes.length > 0) {
-          // Find the most recent 0.5L intake and split it
-          const sortedHalfLiterIntakes = halfLiterIntakes.sort(
+    if (matchingIntakes.length === 0 && amount === 0.25) {
+      const halfLiterIntakes = todayIntakes.filter(
+        (intake) => intake.amount === 0.5
+      );
+      if (halfLiterIntakes.length > 0) {
+        const sortedHalfLiterIntakes = halfLiterIntakes.sort(
             (a, b) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
@@ -757,7 +716,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
             toSplit.id
           );
 
-          // Remove the 0.5L intake and add a 0.25L intake back
           const updated = prev.filter((intake) => intake.id !== toSplit.id);
           const newIntake = {
             ...toSplit,
@@ -775,19 +733,16 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
           return updated;
         }
         
-        // If no 0.5L intakes, try to split a larger intake (e.g., 1.0L)
         const largeIntakes = todayIntakes.filter(
           (intake) => intake.amount > 0.25
         );
         if (largeIntakes.length > 0) {
-          // Find the most recent large intake
           const sortedLargeIntakes = largeIntakes.sort(
             (a, b) =>
               new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
           const toSplit = sortedLargeIntakes[0];
           
-          // Split the larger intake (e.g., 1.0L → 0.75L, or 0.5L → 0.25L)
           console.log(
             `Splitting ${toSplit.amount}L intake to remove 0.25L:`,
             toSplit.id
@@ -825,7 +780,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
         const updated = prev.filter(
           (intake) => intake.id !== mostRecentMatchingIntake.id
         );
-        // Save to AsyncStorage asynchronously
         AsyncStorage.setItem("waterIntakes", JSON.stringify(updated)).catch(
           (error) => {
             console.error("Error saving water intakes:", error);
@@ -859,7 +813,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
       const stored = await AsyncStorage.getItem("exercises");
       if (stored) {
         const parsedExercises = JSON.parse(stored);
-        // Convert timestamp strings back to Date objects
         const exercisesWithDates = parsedExercises.map((exercise: any) => ({
           ...exercise,
           timestamp: new Date(exercise.timestamp),
@@ -874,7 +827,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   const addExercise = (exercise: Exercise) => {
     setExercises((prev) => {
       const updated = [...prev, exercise];
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("exercises", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving exercises:", error);
@@ -889,7 +841,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
       const updated = prev.map((exercise) =>
         exercise.id === exerciseId ? { ...exercise, ...updates } : exercise
       );
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("exercises", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving exercises:", error);
@@ -902,7 +853,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
   const removeExercise = (exerciseId: string) => {
     setExercises((prev) => {
       const updated = prev.filter((exercise) => exercise.id !== exerciseId);
-      // Save to AsyncStorage asynchronously
       AsyncStorage.setItem("exercises", JSON.stringify(updated)).catch(
         (error) => {
           console.error("Error saving exercises:", error);
@@ -930,7 +880,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     );
   };
 
-  // Recipe management functions
   const addRecipe = async (recipe: Recipe) => {
     const updated = [...recipes, recipe];
     setRecipes(updated);
@@ -982,7 +931,6 @@ export const FoodProvider = ({ children }: FoodProviderProps) => {
     return recipes.filter((recipe) => recipe.isFavorite);
   };
 
-  // Weight tracking functions
   const loadWeightHistory = async () => {
     try {
       const stored = await AsyncStorage.getItem("weightHistory");
