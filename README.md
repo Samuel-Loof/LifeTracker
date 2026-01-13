@@ -1,240 +1,102 @@
-# LifeTracker
+LifeTracker
 
-A comprehensive health and nutrition tracking mobile application built with React Native and Expo. Track your daily nutrition, monitor fasting periods, manage habits, and gain insights into your health journey.
+A mobile application for tracking nutrition, fasting, habits, and health metrics, built with React Native, Expo, and TypeScript.
+The project focuses on structured state management, local data persistence, and modular feature design.
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/eb9e6aa5-6506-48e3-9c3d-7912eee5d9d9" width="350" />
-  <img src="https://github.com/user-attachments/assets/83a580d0-01ba-483d-97ba-643dac5bb6fe" width="350" />
-</p>
+<p align="center"> <img src="https://github.com/user-attachments/assets/eb9e6aa5-6506-48e3-9c3d-7912eee5d9d9" width="350" /> <img src="https://github.com/user-attachments/assets/83a580d0-01ba-483d-97ba-643dac5bb6fe" width="350" /> </p> <p align="center"> <img src="https://github.com/user-attachments/assets/62e4cdce-bc20-4426-985f-4e0f6015b6a7" width="350" /> <img src="https://github.com/user-attachments/assets/1cdddff7-6bdd-4b12-864e-4f2ef6a9ceb9" width="350" /> </p>
+Features
+Nutrition Tracking
 
-<p align="center">
-  <img src="https://github.com/user-attachments/assets/62e4cdce-bc20-4426-985f-4e0f6015b6a7" width="350" />
-  <img src="https://github.com/user-attachments/assets/1cdddff7-6bdd-4b12-864e-4f2ef6a9ceb9" width="350" />
-</p>
+Barcode scanning using Expo Camera
 
+Nutrition data retrieval via OpenFoodFacts API
 
-## Features
+Manual food and meal entry
 
-### 🍎 Nutrition Tracking
-- **Barcode Scanner**: Scan product barcodes to automatically retrieve nutrition information from OpenFoodFacts API
-- **Manual Food Entry**: Add custom foods and meals with detailed nutrition data
-- **Daily Intake Tracking**: Monitor calories, macros (protein, carbs, fats), and micronutrients
-- **Recipe Management**: Create, edit, and save custom recipes with ingredient tracking
-- **Nutrition Insights**: View detailed analytics and trends of your eating habits
+Daily calorie and macronutrient tracking
 
-### ⏱️ Fasting Tracker
-- Real-time fasting timer with multiple fasting protocols
-- Visual progress indicators
-- Fasting history and statistics
+Recipe creation with ingredient-based nutrition calculation
 
-### 🎯 Habit Tracking
-- Streak tracking for daily habits
-- Calendar view of habit progress
-- Customizable habit benefits timeline
-- Push notifications for habit reminders
+Historical intake analytics
 
-### 💧 Water Intake
-- Daily water consumption tracking
-- Customizable water goals
-- Visual progress indicators
+Fasting
 
-### 📊 Health Metrics
-- Weight tracking with graph visualization
-- Activity level monitoring
-- Exercise logging
-- Personal profile management
+Real-time fasting timer
 
-### 🔔 Notifications
-- Push notifications for habit reminders
-- Streak maintenance alerts
-- Supplement reminders
+Support for multiple fasting protocols
 
-## Technologies Used
+Fasting history and duration statistics
 
-- **React Native** (0.81.4) - Cross-platform mobile development
-- **Expo** (^54.0.13) - Development platform and tooling
-- **TypeScript** (~5.8.3) - Type-safe development
-- **Expo Router** (~6.0.21) - File-based routing system
-- **React Context API** - Global state management
-- **AsyncStorage** - Local data persistence
-- **Expo Camera** - Barcode scanning functionality
-- **Expo Notifications** - Push notification system
-- **React Navigation** - Screen navigation
-- **OpenFoodFacts API** - Food database integration
+Habit Tracking
 
-## Prerequisites
+Daily habit tracking with streak logic
 
-- Node.js (>= 16.17.4)
-- npm or yarn
-- Expo CLI
-- iOS Simulator (for iOS development) or Android Studio (for Android development)
-- For physical device testing: Expo Go app or development build
+Calendar-based progress visualization
 
-## Installation
+Configurable reminders using push notifications
 
-1. Clone the repository:
-```bash
-git clone <repository-url>
-cd LifeTrack3r
-```
+Water Intake
 
-2. Install dependencies:
-```bash
-npm install
-```
+Daily water consumption tracking
 
-3. Start the development server:
-```bash
-npm start
-```
+Goal-based progress visualization
 
-4. Run on your preferred platform:
-   - Press `i` for iOS simulator
-   - Press `a` for Android emulator
-   - Scan QR code with Expo Go app for physical device
+Health Metrics
 
-## Project Structure
+Weight tracking with chart visualization
 
-```
-LifeTrack3r/
-├── app/
-│   ├── _layout.tsx              # Root layout with navigation
-│   ├── index.tsx                 # Home screen
-│   ├── scanner.tsx               # Barcode scanner screen
-│   ├── manual.tsx                # Manual food entry
-│   └── components/
-│       ├── BarcodeScanner.tsx    # Barcode scanning component
-│       ├── FoodContext.tsx       # Food data state management
-│       ├── HabitContext.tsx      # Habit tracking state management
-│       ├── FoodDataService.ts    # OpenFoodFacts API integration
-│       └── screens/              # All app screens
-│           ├── HomeScreen.tsx
-│           ├── AddFoodScreen.tsx
-│           ├── DailyIntakeScreen.tsx
-│           ├── FastingScreen.tsx
-│           ├── HabitDashboardScreen.tsx
-│           └── ... (other screens)
-├── assets/                       # Images and icons
-├── Data/
-│   └── mockFoodData.ts          # Mock data for development
-├── app.json                      # Expo configuration
-├── eas.json                      # EAS Build configuration
-└── package.json                  # Dependencies
-```
+Activity level configuration
 
-## Building for Production
+Exercise logging
 
-### Using EAS Build
+User profile management
 
-1. Install EAS CLI:
-```bash
-npm install -g eas-cli
-```
+Notifications
 
-2. Login to your Expo account:
-```bash
-eas login
-```
+Habit reminders
 
-3. Configure your project:
-```bash
-eas build:configure
-```
+Streak alerts
 
-4. Build for production:
-```bash
-# Android
-eas build --platform android --profile production
+Supplement reminders
 
-# iOS
-eas build --platform ios --profile production
-```
+Technical Stack
 
-### Build Profiles
+React Native (0.81.4) – Cross-platform mobile development
 
-- **Development**: Development client with hot reload
-- **Preview**: Internal distribution builds
-- **Production**: App Store and Play Store ready builds
+Expo (^54.0.13) – Tooling and build system
 
-## Configuration
+TypeScript (~5.8.3) – Static typing and improved maintainability
 
-### App Configuration
+Expo Router (~6.0.21) – File-based, type-safe navigation
 
-Edit `app.json` to customize:
-- App name and slug
-- Bundle identifiers
-- Permissions
-- Icons and splash screens
+React Context API – Global state management
 
-### API Integration
+AsyncStorage – Local-first data persistence
 
-The app uses OpenFoodFacts API for barcode scanning. No API key required, but ensure proper User-Agent header is set (configured in `FoodDataService.ts`).
+Expo Camera – Barcode scanning
 
-## Features in Detail
+Expo Notifications – Push notification handling
 
-### State Management
+OpenFoodFacts API – External food database integration
 
-The app uses React Context API for state management:
-- **FoodContext**: Manages food items, recipes, and daily intake
-- **HabitContext**: Manages habits, streaks, and progress
+Architectural Notes
 
-### Data Persistence
+Local-first design: All user data is persisted locally via AsyncStorage.
 
-All data is stored locally using AsyncStorage:
-- Food entries and history
-- Recipes
-- Habit progress
-- User profile and settings
+Context-based state management: Feature-specific contexts (Food, Habits) isolate logic and reduce coupling.
 
-### Navigation
+Modular screen structure: Screens and feature logic are separated to improve maintainability.
 
-File-based routing with Expo Router:
-- Automatic route generation from file structure
-- Type-safe navigation
-- Deep linking support
+Type safety: Strict TypeScript configuration enforced across the codebase.
 
-## Development
+Project Structure
 
-### Running on Different Platforms
+(din struktur är redan bra – den kan stå kvar som den är)
 
-```bash
-# iOS
-npm run ios
+Build & Deployment
 
-# Android
-npm run android
+Production builds are handled via Expo Application Services (EAS) with separate profiles for development, preview, and production environments.
 
-# Web
-npm run web
-```
+License
 
-### TypeScript
-
-The project uses strict TypeScript mode. Ensure all components and functions are properly typed.
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is private and not licensed for public use.
-
-## Acknowledgments
-
-- OpenFoodFacts for providing the food database API
-- Expo team for the excellent development platform
-- React Native community for the amazing ecosystem
-
-## Support
-
-For issues and questions, please open an issue in the repository.
-
----
-
-Built with ❤️ using React Native and Expo
-
+Private project. Not licensed for public use.
